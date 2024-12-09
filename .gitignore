@@ -1,0 +1,13 @@
+data/
+
+wandb/
+
+.tripletsegmentation/
+
+outputs/
+
+# my_mmdetection/
+
+__pycache__/
+
+results/
