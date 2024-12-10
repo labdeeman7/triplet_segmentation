@@ -160,8 +160,11 @@ class Detection(Recognition):
     def is_id_switch(self, det_gt, det_pd, det_gts, threshold):        
         if self.iou(det_gt[-4:], det_pd[-4:]) > threshold: # cond 2: insufficient/sufficient iou 
             gt_ids = list(det_gts[:,0])
-            if det_pd[0] in gt_ids: # cond 1: switched identity
-                return np.where(gt_ids==det_pd[0])[0][0]
+            # print(f'gt_ids, {gt_ids}')
+            # print(f'det_pd, {det_pd} ')
+            if det_pd[0] in gt_ids: # cond 1: switched identity 
+                # return np.where(gt_ids==det_pd[0])[0][0]  I think he was working with like batched inputs or something similar I need to allow for batched inputs. 
+                return np.where(gt_ids==det_pd[0])
         return False    
     
     def is_id_miss(self, det_gt, det_pd, threshold):        
@@ -172,7 +175,8 @@ class Detection(Recognition):
     def is_miss_loc(self, det_gt, det_pd, det_gts):        
         gt_ids = list(det_gts[:,0])
         if det_pd[0] in gt_ids: # cond 1: correct identity only
-            return np.where(gt_ids==det_pd[0])[0][0]
+            # return np.where(gt_ids==det_pd[0])[0][0] # I think he was working with like batched inputs or something similar I need to allow for batched inputs. 
+            return np.where(gt_ids==det_pd[0])
         return False   
     
     def separate_detection(self, det_gts, det_pds):

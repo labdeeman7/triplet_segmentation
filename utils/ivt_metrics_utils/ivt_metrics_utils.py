@@ -96,6 +96,9 @@ def run_ivt_metric_object_for_folder(ivt_metric_object,
         json_dict_gt =  read_from_json(gt_ann_path)
         list_of_info_dict_for_metric_calculation_in_img_gt = get_list_of_info_dict_for_metric_calculation_in_img(json_dict_gt)  
         
+        print(f'pred, {list_of_info_dict_for_metric_calculation_in_img_pred}')
+        print(f'gt, {list_of_info_dict_for_metric_calculation_in_img_gt}')
+        
 
         # print(list_of_info_dict_for_metric_calculation_in_img_gt)
         
