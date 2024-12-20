@@ -1,4 +1,14 @@
-class TripletSegmentationVariables(object):        
+class TripletSegmentationVariables(object):    
+    
+    dataset_size = 21443
+    num_instuments = 6
+    num_verbs = 10
+    num_targets = 15
+    num_triplets = 100
+    
+    width = 854
+    height = 480
+        
     categories = {
     'instrument': {
         '1': 'grasper',
@@ -7,6 +17,16 @@ class TripletSegmentationVariables(object):
         '4': 'scissors',
         '5': 'clipper',
         '6': 'irrigator'
+    },
+    
+    'instrument_direct_pred': {
+        '1': 'grasper',
+        '2': 'hook',
+        '3': 'irrigator',
+        '4': 'clipper',
+        '5': 'bipolar',
+        '6': 'scissors',
+        '7': 'snare'
     },
        
     'verb': {
@@ -144,11 +164,6 @@ class TripletSegmentationVariables(object):
         }
     }
     
-    dataset_size = 21443
-    
-    width = 854
-    height = 480
-    
     instrument_colors = {
     'grasper': (255, 0, 0),        # red
     'hook': (0, 128, 0),           # green
@@ -171,10 +186,7 @@ class TripletSegmentationVariables(object):
     
     seq_to_split_dict_tiny = {
         'VID04_t50_sparse': 'train',
-       
-        
         'VID49_t50_sparse': 'test',
-        
         'VID111_t50_sparse': 'val',
         }
     

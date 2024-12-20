@@ -68,7 +68,7 @@ class Detection(Recognition):
     @format
         box format: [{"triplet":tid, "instrument":[tool, 1.0, x,y,w,h], "target":[]}]
     """
-    def __init__(self, num_class=100, num_tool=6, num_target=15, threshold=0.5):
+    def __init__(self, num_class=100, num_tool=6, num_target=15, num_actions = 10, threshold=0.5):
         super(Recognition, self).__init__()
         self.num_class      = num_class  
         self.num_tool       = num_tool                

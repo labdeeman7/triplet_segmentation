@@ -4,37 +4,62 @@ from torchvision import models
 
 # Multitask ResNet
 class MultiTaskResNet(nn.Module):
-    def __init__(self, num_instruments, num_actions, num_targets):
+    def __init__(self, num_instruments, num_verbs, num_targets):
         super(MultiTaskResNet, self).__init__()
         self.resnet = models.resnet50(pretrained=True)
-
-        # Freeze backbone layers if needed
-        for param in self.resnet.parameters():
-            param.requires_grad = True
-
-        # Add input for instrument annotation
-        self.fc_instrument = nn.Linear(256, 64)  # Adjust the input size if needed
-        self.fc_concat = nn.Linear(self.resnet.fc.in_features + 64, 512)
-
-        # Two separate task heads
-        self.fc_action = nn.Linear(512, num_actions)
-        self.fc_target = nn.Linear(512, num_targets)
-
-    def forward(self, x, instrument_annotation):
-        # Extract features from ResNet
-        features = self.resnet(x)
         
-        # Process instrument annotation
-        instrument_features = self.fc_instrument(instrument_annotation)
+        # Modify the first convolutional layer to accept 4 channels
+        original_conv1 = self.resnet.conv1
+        self.resnet.conv1 = nn.Conv2d(
+            in_channels=4,  # 3 for RGB + 1 for mask
+            out_channels=original_conv1.out_channels,
+            kernel_size=original_conv1.kernel_size,
+            stride=original_conv1.stride,
+            padding=original_conv1.padding,
+            bias=original_conv1.bias
+        )
 
-        # Concatenate image features and instrument features
-        combined_features = torch.cat((features, instrument_features), dim=1)
+        # Copy the pretrained weights for the RGB channels
+        self.resnet.conv1.weight.data[:, :3, :, :] = original_conv1.weight.data
+        # Initialize the weights for the mask channel to zeros
+        self.resnet.conv1.weight.data[:, 3:, :, :] = 0.0
+        
+        
+        # Save the number of input features of the original fc layer
+        num_features = self.resnet.fc.in_features
+        
+        self.resnet.fc = nn.Identity()  # Remove the default classification head
 
-        # Process combined features
-        combined_features = self.fc_concat(combined_features)
+        # Learnable embedding for instruments
+        self.instrument_embedding = nn.Embedding(num_instruments, 64)
 
-        # Task-specific predictions
-        action_output = self.fc_action(combined_features)
-        target_output = self.fc_target(combined_features)
+        # Fully connected layers for verbs and targets
+        self.fc_verb = nn.Sequential(
+            nn.Linear(num_features  + 64, 256),
+            nn.ReLU(),
+            nn.Linear(256, num_verbs)  # Output logits for verbs
+        )
 
-        return action_output, target_output
+        self.fc_target = nn.Sequential(
+            nn.Linear(num_features  + 64, 256),
+            nn.ReLU(),
+            nn.Linear(256, num_targets)  # Output logits for targets
+        )
+
+    def forward(self, img, mask, instrument_id):
+       # Concatenate the image and mask along the channel dimension
+        combined_input = torch.cat((img, mask), dim=1)  # Result: [batch_size, 4, H, W]
+        
+        img_features = self.resnet(combined_input)
+
+        # Embed the instrument ID
+        instrument_features = self.instrument_embedding(instrument_id)
+
+        # Concatenate image features with instrument features
+        combined_features = torch.cat((img_features, instrument_features), dim=1)
+
+        # Predict verbs and targets
+        action_preds = self.fc_verb(combined_features)
+        target_preds = self.fc_target(combined_features)
+
+        return action_preds, target_preds
