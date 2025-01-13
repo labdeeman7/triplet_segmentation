@@ -3,7 +3,7 @@ sys.path.append('../')
 
 from dataset import PredictionDataset
 from torch.utils.data import DataLoader
-from model import MultiTaskResNet
+from resnet_model.models.multitask_resnet import MultiTaskResNet
 import torch
 
 from custom_transform import CustomTransform

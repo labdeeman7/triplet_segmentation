@@ -11,3 +11,5 @@ outputs/
 __pycache__/
 
 results/
+
+work_dirs/

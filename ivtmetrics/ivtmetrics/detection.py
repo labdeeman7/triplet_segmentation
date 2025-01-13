@@ -68,10 +68,21 @@ class Detection(Recognition):
     @format
         box format: [{"triplet":tid, "instrument":[tool, 1.0, x,y,w,h], "target":[]}]
     """
-    def __init__(self, num_class=100, num_tool=6, num_target=15, num_actions = 10, threshold=0.5):
+    def __init__(self, num_class=100, 
+                 num_tool=6,
+                 num_verb = 10,
+                 num_target =15, 
+                 num_instrument_verb = 60, 
+                 num_instrument_target= 90, 
+                 threshold=0.5):
         super(Recognition, self).__init__()
         self.num_class      = num_class  
-        self.num_tool       = num_tool                
+        self.num_tool       = num_tool     
+        self.num_verb = num_verb
+        self.num_target = num_target
+        self.num_instrument_verb = num_instrument_verb
+        self.num_instrument_target = num_instrument_target
+                   
         self.classwise_ap   = []
         self.classwise_rec  = []
         self.classwise_prec = []
@@ -95,10 +106,28 @@ class Detection(Recognition):
         self.accumulator[self.video_count] = {
             "hits":  [[] for _ in range(self.num_class)],
             "ndet":  [0  for _ in range(self.num_class)],
-            "npos":  [0  for _ in range(self.num_class)],                             
+            "npos":  [0  for _ in range(self.num_class)],  
+                                       
             "hits_i":[[] for _ in range(self.num_tool)],
-            "ndet_i":[0  for _ in range(self.num_tool)] ,
-            "npos_i":[0  for _ in range(self.num_tool)] ,                    
+            "ndet_i":[0  for _ in range(self.num_tool)],
+            "npos_i":[0  for _ in range(self.num_tool)], 
+            
+            "hits_v":[[] for _ in range(self.num_verb)],
+            "ndet_v":[0  for _ in range(self.num_verb)],
+            "npos_v":[0  for _ in range(self.num_verb)], 
+            
+            "hits_t":[[] for _ in range(self.num_target)],
+            "ndet_t":[0  for _ in range(self.num_target)],
+            "npos_t":[0  for _ in range(self.num_target)], 
+            
+            "hits_iv":[[] for _ in range(self.num_instrument_verb)],
+            "ndet_iv":[0  for _ in range(self.num_instrument_verb)],
+            "npos_iv":[0  for _ in range(self.num_instrument_verb)], 
+            
+            "hits_it":[[] for _ in range(self.num_instrument_target)],
+            "ndet_it":[0  for _ in range(self.num_instrument_target)],
+            "npos_it":[0  for _ in range(self.num_instrument_target)], 
+                               
             "fp": 0,
             "fn": 0,
             "lm": 0,
@@ -107,6 +136,23 @@ class Detection(Recognition):
             "idm": 0,
             "mil": 0,
         }
+        
+    ## overwrite decompose from disentangle. 
+    def decompose(self, ivt_id, component):
+        """ Extract the component labels from the triplets.
+            @args:
+                ivt_it: id of the ivt_label
+                component: a string for the component to extract; 
+                        (e.g.: i for instrument, v for verb, t for target, iv for instrument-verb pair, it for instrument-target pair and vt (unused) for verb-target pair)
+            @return:
+                output: int or float with the ids
+        """
+        
+        assert ivt_id <= 99 and ivt_id >= 0 and type(ivt_id) == int, 'we only support the CholecT50 dataset, hence 0 to 99 ints only' 
+        txt2id = {'ivt':0, 'i':1, 'v':2, 't':3, 'iv':4, 'it':5} 
+        component_key    = txt2id[component]
+        
+        return self.bank[ivt_id, component_key]
     
     def xywh2xyxy(self, bb):
         bb[2] += bb[0]
@@ -223,6 +269,9 @@ class Detection(Recognition):
         self.end_call = False 
     
     def update_frame(self, targets, predictions, format="list"):
+        
+        print(f'original ground_truth {targets}')
+        
         if format=="list":            
             detection_gt    = self.list2stack(targets)
             detection_pd    = self.list2stack(predictions)
@@ -235,6 +284,10 @@ class Detection(Recognition):
             return
         detection_gt_ivt = detection_gt.copy()
         detection_pd_ivt = detection_pd.copy()
+        
+        print(f'after stacking detection_gt, {detection_gt}')
+        
+        
         # for triplet        
         for gt in detection_gt_ivt: 
             if len(gt): self.accumulator[self.video_count]["npos"][int(gt[0])] += 1
@@ -254,32 +307,72 @@ class Detection(Recognition):
                     self.accumulator[self.video_count]["hits"][int(det_pd[0])].append(1.0)
                 else:
                     self.accumulator[self.video_count]["hits"][int(det_pd[0])].append(0.0)
-        # for instrument       
-        detection_gt_i = detection_gt.copy()
-        detection_pd_i = detection_pd.copy() 
-        # print('detection_gt_i', detection_gt_i)
-        for gt in detection_gt_i:
+                    
+        #i 
+        self.update_frame_for_a_component(detection_gt, detection_pd, 'i')          
+        # #v            
+        self.update_frame_for_a_component(detection_gt, detection_pd, 'v')      
+        #t           
+        self.update_frame_for_a_component(detection_gt, detection_pd, 't')
+        #iv            
+        self.update_frame_for_a_component(detection_gt, detection_pd, 'iv')      
+        #it           
+        self.update_frame_for_a_component(detection_gt, detection_pd, 'it')            
+
+        
+                    
+        # process association
+        self.association(targets=detection_gt.copy(), predictions=detection_pd.copy())
+        
+    def update_frame_for_a_component(self, detection_gt, detection_pd, component):
+        #for components.        
+        detection_gt_component = detection_gt.copy()
+        detection_pd_component = detection_pd.copy() 
+        print(f'')
+        for gt in detection_gt_component:
             if len(gt): 
-                # print(int(gt[1]))
-                self.accumulator[self.video_count]["npos_i"][int(gt[1])] += 1        
-        for det_pd in detection_pd_i:
+                gt_ivt = int(gt[0])
+                gt_component_id = self.decompose(ivt_id=gt_ivt, component=component)
+                self.accumulator[self.video_count][f"npos_{component}"][gt_component_id] += 1 
+                       
+        for det_pd in detection_pd_component:
             if len(det_pd):
-                self.accumulator[self.video_count]["ndet_i"][int(det_pd[1])] += 1
+                pd_ivt = int(det_pd[0])
+                pd_component_id = self.decompose(ivt_id=pd_ivt, component=component)
+                self.accumulator[self.video_count][f"ndet_{component}"][pd_component_id] += 1
                 matched = False                
-                for k, det_gt in enumerate(detection_gt_i): 
+                for k, det_gt in enumerate(detection_gt_component): 
                     if len(det_gt): 
-                        y = det_gt[1:] 
-                        f = det_pd[1:]
+                        y = det_gt.copy()  #This code is quite annoying
+                        gt_ivt = int(det_gt[0])
+                        gt_component_id = self.decompose(ivt_id=gt_ivt, component=component)
+                        # print(f'gt_ivt {gt_ivt}, gt_before = {det_gt} ')
+                        y[0] = gt_component_id                        
+                        
+                        # print(f'gt_ivt {gt_ivt}, gt_after = {det_gt} ')
+                        # print(f'{y[0]  == y[1] }  y[0] - {y[0]}, y[1] - {y[1]}')
+                        
+                        
+                        f = det_pd.copy()
+                        pred_ivt = int(det_pd[0])
+                        pred_component_id = self.decompose(ivt_id=pred_ivt, component=component)
+                        f[0] = pred_component_id
+                        
+                        # print(f'pred_ivt {pred_ivt}, pred = {f}')
+                        # print(f'{f[0]  == f[1] } f[0] - {f[0]}, f[1] - {f[1]}')
+                        
                         if self.is_match(y, f, threshold=self.threshold):
-                            detection_gt_i = np.delete(detection_gt_i, obj=k, axis=0)
+                            detection_gt_component = np.delete(detection_gt_component, obj=k, axis=0)
                             matched = True
                             break
                 if matched:
-                    self.accumulator[self.video_count]["hits_i"][int(det_pd[1])].append(1.0)
+                    self.accumulator[self.video_count][f"hits_{component}"][pd_component_id].append(1.0)
                 else:
-                    self.accumulator[self.video_count]["hits_i"][int(det_pd[1])].append(0.0)  
-        # process association
-        self.association(targets=detection_gt.copy(), predictions=detection_pd.copy())
+                    self.accumulator[self.video_count][f"hits_{component}"][pd_component_id].append(0.0)  
+                    
+        
+        # print(f'\n')            
+            
         
     def association(self, targets, predictions): 
         detection_gt = targets.copy()
@@ -435,9 +528,9 @@ class Detection(Recognition):
         classwise_prec  = []
         if video_id == None: 
             video_id = self.video_count-1 if self.end_call else self.video_count
-        hit_str     = "hits" if component=="ivt" else "hits_i"
-        pos_str     = "npos" if component=="ivt" else "npos_i"
-        det_str     = "ndet" if component=="ivt" else "ndet_i"
+        hit_str     = "hits" if component=="ivt" else f"hits_{component}"
+        pos_str     = "npos" if component=="ivt" else f"npos_{component}"
+        det_str     = "ndet" if component=="ivt" else f"ndet_{component}"
         num_class   = self.num_class if component=="ivt" else self.num_tool       
         # decide on accumulator for framewise / video wise / current
         if video_id == -1:

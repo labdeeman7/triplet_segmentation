@@ -1,18 +1,57 @@
 import torch
 import json
+import os
 
-def train_model(model, dataloader, optimizer, loss_fn, num_epochs=10, device='cuda'):
+
+def save_checkpoint(model, optimizer, epoch, best_val_accuracy, file_path):
+    """Saves a checkpoint of the model."""
+    checkpoint = {
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'epoch': epoch,
+        'best_val_accuracy': best_val_accuracy
+    }
+    torch.save(checkpoint, file_path)
+    print(f"Checkpoint saved to {file_path}")
+
+
+def load_checkpoint(file_path, model, optimizer=None):
+    """Loads a checkpoint and restores the model and optimizer states."""
+    checkpoint = torch.load(file_path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    if optimizer:
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    epoch = checkpoint['epoch']
+    best_val_accuracy = checkpoint['best_val_accuracy']
+    print(f"Checkpoint loaded from {file_path}, starting from epoch {epoch+1}")
+    return epoch, best_val_accuracy
+
+
+def train_model(model, 
+                train_loader, 
+                val_loader, 
+                optimizer, 
+                loss_fn, 
+                work_dir,
+                num_epochs=10, 
+                device='cuda', 
+                start_epoch=0,
+                best_val_accuracy=0.0 ):
     model = model.to(device)
-    for epoch in range(num_epochs):
+
+    # Create the save directory if it doesn't exist
+    os.makedirs(work_dir, exist_ok=True)    
+
+    for epoch in range(start_epoch, num_epochs):
         model.train()
         running_loss = 0.0
 
-        for img, mask, instrument_id, instance_id, verb_id, target_id, mask_name in dataloader:
+        for img, mask, instrument_id, instance_id, verb_id, target_id, mask_name in train_loader:
             img = img.to(device)
+            mask = mask.to(device)
             instrument_id = instrument_id.to(device)
             verb_id = verb_id.to(device)
             target_id = target_id.to(device)
-            mask = mask.to(device)
 
             optimizer.zero_grad()
 
@@ -26,26 +65,77 @@ def train_model(model, dataloader, optimizer, loss_fn, num_epochs=10, device='cu
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
+            
+            #remove this
+            break 
+            
 
-        print(f"Epoch {epoch+1}/{num_epochs}, Loss: {running_loss / len(dataloader)}")
+        print(f"Epoch {epoch+1}/{num_epochs}, Loss: {running_loss / len(train_loader):.4f}")
 
+        # Validate the model
+        val_accuracy = test_model_with_evaluation(model, 
+                                  val_loader, 
+                                  device=device, 
+                                  verbose=False)
 
+        # Save the best model
+        if val_accuracy > best_val_accuracy:
+            best_val_accuracy = val_accuracy
+            best_model_path = os.path.join(work_dir, "best_model.pth")
+            save_checkpoint(model, optimizer, epoch, best_val_accuracy, best_model_path)
+            print(f"New best model saved to {best_model_path} with accuracy {best_val_accuracy:.2f}")
 
-# Test Loop
-def test_model(model, dataloader, output_json_path, save_model_path=None, device='cuda'):
+        # Save the latest model
+        latest_model_path = os.path.join(work_dir, f"epoch_{epoch}.pth")
+        save_checkpoint(model, optimizer, epoch, best_val_accuracy, latest_model_path)
+        
+        # Delete previous if it exist
+        previous_saved_model_path = os.path.join(work_dir, f"epoch_{epoch-1}.pth")
+
+        if os.path.exists(previous_saved_model_path):
+            os.remove(previous_saved_model_path)
+
+def test_model(model, 
+               dataloader, 
+               device='cuda', 
+               save_results_path='',
+               verbose=True,
+               verb_and_target_gt_present_for_test=True):
+    
+    if verb_and_target_gt_present_for_test:
+        test_model_with_evaluation(model = model, 
+                dataloader = dataloader, 
+                device=device, 
+                save_results_path=save_results_path,
+                verbose=verbose )
+    else:
+        predict_with_model(model = model, 
+                dataloader = dataloader, 
+                device=device, 
+                save_results_path=save_results_path,
+                verbose=verbose )
+        
+            
+
+def test_model_with_evaluation(model, 
+               dataloader, 
+               device='cuda', 
+               save_results_path='',
+               verbose=True ):
+    
     model.eval()
     total_verb_correct = 0
     total_target_correct = 0
     total_samples = 0
-    results = {} 
+    results = {}
 
     with torch.no_grad():
         for img, mask, instrument_id, instance_id, verb_id, target_id, mask_name in dataloader:
             img = img.to(device)
+            mask = mask.to(device)
             instrument_id = instrument_id.to(device)
             verb_id = verb_id.to(device)
             target_id = target_id.to(device)
-            mask = mask.to(device)
 
             verb_preds, target_preds = model(img, mask, instrument_id)
 
@@ -57,7 +147,7 @@ def test_model(model, dataloader, output_json_path, save_model_path=None, device
             total_verb_correct += (verb_preds == verb_id).sum().item()
             total_target_correct += (target_preds == target_id).sum().item()
             total_samples += img.size(0)
-            
+
             # Store results in dictionary
             for i in range(len(mask_name)):
                 results[mask_name[i]] = {
@@ -66,26 +156,28 @@ def test_model(model, dataloader, output_json_path, save_model_path=None, device
                     "instance_id": instance_id[i]
                 }
 
-    # Save results to JSON file
-    with open(output_json_path, 'w') as f:
-        json.dump(results, f, indent=4)
-    
-    # Save the model (optional)
-    if save_model_path:
-        torch.save(model.state_dict(), save_model_path)
-        print(f"Model saved to {save_model_path}")    
-        
-    print(f"verb Accuracy: {total_verb_correct / total_samples:.2f}")
-    print(f"Target Accuracy: {total_target_correct / total_samples:.2f}")
+    # Calculate accuracy
+    verb_accuracy = total_verb_correct / total_samples
+    target_accuracy = total_target_correct / total_samples
 
+    if verbose:
+        print(f"Validation Verb Accuracy: {verb_accuracy:.2f}")
+        print(f"Validation Target Accuracy: {target_accuracy:.2f}")
+
+    if save_results_path:  # Save predictions to JSON
+        with open(save_results_path, 'w') as f:
+            json.dump(results, f, indent=4)
+
+    return (verb_accuracy + target_accuracy) / 2  # Average accuracy
 
 
 # Predict loop
-def predict_with_model(model, dataloader, output_json_path, device='cuda'):
+def predict_with_model(model, dataloader, save_results_path='', device='cuda', verbose=True):
     model.eval()
     results = {}  # Dictionary to store predictions
     
-    print('began prediction...')
+    if verbose:
+        print('began prediction...')
 
     with torch.no_grad():
         for img, mask, instrument_id, instance_id, mask_name in dataloader:
@@ -109,7 +201,7 @@ def predict_with_model(model, dataloader, output_json_path, device='cuda'):
                 }
 
     # Save predictions to JSON
-    with open(output_json_path, 'w') as f:
+    with open(save_results_path, 'w') as f:
         json.dump(results, f, indent=4)
 
-    print(f"Predictions saved to {output_json_path}")
+    print(f"Predictions saved to {save_results_path}")

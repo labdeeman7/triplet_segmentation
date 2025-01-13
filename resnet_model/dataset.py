@@ -44,7 +44,7 @@ class SurgicalDataset(Dataset):
         ann_for_second_stage_name_base = ann_for_second_stage_name.split('.')[0]
         img_name, instrument_name, instance_id, verb_name, target_name = ann_for_second_stage_name_base.split(',')
         img_path = join(self.img_dir, f'{img_name}.png')
-        verb_id = int(VERB_CLASS_TO_ID_DICT[verb_name])-1
+        verb_id =  int(VERB_CLASS_TO_ID_DICT[verb_name])-1
         target_id = int(TARGET_CLASS_TO_ID_DICT[target_name])-1
         instrument_id = int(INSTRUMENT_CLASS_TO_ID_DICT[instrument_name])-1
         
@@ -52,7 +52,7 @@ class SurgicalDataset(Dataset):
         mask = Image.open(ann_for_second_stage_path).convert("L")  # Load mask as grayscale
         
         if self.transform:
-            img, mask = self.transform(img, mask, self.train_mode)  # Apply custom transformatio
+            img, mask = self.transform(img, mask, self.train_mode)  # Apply custom transformation
 
 
         return img, mask, instrument_id, instance_id, verb_id, target_id, ann_for_second_stage_name_base

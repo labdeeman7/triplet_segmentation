@@ -19,15 +19,15 @@ class TripletSegmentationVariables(object):
         '6': 'irrigator'
     },
     
-    'instrument_direct_pred': {
-        '1': 'grasper',
-        '2': 'hook',
-        '3': 'irrigator',
-        '4': 'clipper',
-        '5': 'bipolar',
-        '6': 'scissors',
-        '7': 'snare'
-    },
+    # 'instrument_direct_pred': {
+    #     '1': 'grasper',
+    #     '2': 'hook',
+    #     '3': 'irrigator',
+    #     '4': 'clipper',
+    #     '5': 'bipolar',
+    #     '6': 'scissors',
+    #     '7': 'snare'
+    # },
        
     'verb': {
         '1': 'grasp',
