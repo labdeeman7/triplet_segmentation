@@ -66,9 +66,7 @@ def train_model(model,
             optimizer.step()
             running_loss += loss.item()
             
-            #remove this
-            break 
-            
+                        
 
         print(f"Epoch {epoch+1}/{num_epochs}, Loss: {running_loss / len(train_loader):.4f}")
 
