@@ -1,3 +1,6 @@
+import sys
+sys.path.append('../')
+
 import argparse
 import importlib
 import torch
@@ -6,7 +9,7 @@ from dataset import SurgicalDataset, PredictionDataset
 from loss import MultiTaskLoss
 from custom_transform import CustomTransform
 from utils.general.dataset_variables import TripletSegmentationVariables
-from resnet_model.train_and_test_predict_loop import train_model, test_model, load_checkpoint, predict_with_model
+from train_and_test_predict_loop import train_model, test_model, load_checkpoint, predict_with_model
 
 
 def main():
