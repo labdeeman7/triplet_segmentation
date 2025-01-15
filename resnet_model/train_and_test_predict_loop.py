@@ -12,7 +12,7 @@ def save_checkpoint(model, optimizer, epoch, best_val_accuracy, file_path):
         'best_val_accuracy': best_val_accuracy
     }
     torch.save(checkpoint, file_path)
-    print(f"Checkpoint saved to {file_path}")
+    print(f"Checkpoint saved to {file_path}", flush=True)
 
 
 def load_checkpoint(file_path, model, optimizer=None):
@@ -23,7 +23,7 @@ def load_checkpoint(file_path, model, optimizer=None):
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     epoch = checkpoint['epoch']
     best_val_accuracy = checkpoint['best_val_accuracy']
-    print(f"Checkpoint loaded from {file_path}, starting from epoch {epoch+1}")
+    print(f"Checkpoint loaded from {file_path}, starting from epoch {epoch+1}", flush=True)
     return epoch, best_val_accuracy
 
 
@@ -43,6 +43,7 @@ def train_model(model,
     os.makedirs(work_dir, exist_ok=True)    
 
     for epoch in range(start_epoch, num_epochs):
+        print(f'started epoch {epoch}', flush=True)
         model.train()
         running_loss = 0.0
 
@@ -68,7 +69,7 @@ def train_model(model,
             
                         
 
-        print(f"Epoch {epoch+1}/{num_epochs}, Loss: {running_loss / len(train_loader):.4f}")
+        print(f"Epoch {epoch+1}/{num_epochs}, Loss: {running_loss / len(train_loader):.4f}", flush=True)
 
         # Validate the model
         val_accuracy = test_model_with_evaluation(model, 
@@ -81,7 +82,7 @@ def train_model(model,
             best_val_accuracy = val_accuracy
             best_model_path = os.path.join(work_dir, "best_model.pth")
             save_checkpoint(model, optimizer, epoch, best_val_accuracy, best_model_path)
-            print(f"New best model saved to {best_model_path} with accuracy {best_val_accuracy:.2f}")
+            print(f"New best model saved to {best_model_path} with accuracy {best_val_accuracy:.2f}", flush=True)
 
         # Save the latest model
         latest_model_path = os.path.join(work_dir, f"epoch_{epoch}.pth")
@@ -160,8 +161,8 @@ def test_model_with_evaluation(model,
     target_accuracy = total_target_correct / total_samples
 
     if verbose:
-        print(f"Validation Verb Accuracy: {verb_accuracy:.2f}")
-        print(f"Validation Target Accuracy: {target_accuracy:.2f}")
+        print(f"Validation Verb Accuracy: {verb_accuracy:.2f}", flush=True)
+        print(f"Validation Target Accuracy: {target_accuracy:.2f}", flush=True)
 
     if save_results_path:  # Save predictions to JSON
         with open(save_results_path, 'w') as f:
@@ -186,7 +187,7 @@ def predict_with_model(model,
     results = {}  # Dictionary to store predictions
     
     if verbose:
-        print('began prediction...')
+        print('began prediction...', flush=True)
 
     with torch.no_grad():
         for img, mask, instrument_id, instance_id, mask_name in dataloader:
@@ -214,4 +215,4 @@ def predict_with_model(model,
     with open(save_results_path, 'w') as f:
         json.dump(results, f, indent=4)
 
-    print(f"Predictions saved to {save_results_path}")
+    print(f"Predictions saved to {save_results_path}", flush=True)
