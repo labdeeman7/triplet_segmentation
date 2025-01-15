@@ -1,6 +1,7 @@
 import sys
 sys.path.append('../')
 
+from os.path import join
 import argparse
 import importlib
 import torch
@@ -69,11 +70,12 @@ def main():
         start_epoch, best_val_accuracy = load_checkpoint(config.load_from_checkpoint, model, optimizer)
 
     # Run in prediction mode
-    if args.predict:
+    if config.predict_only_mode:
         assert config.load_from_checkpoint, "A checkpoint to load the model is required for prediction mode."
         predict_with_model(
-            model,
-            test_loader,
+            model=model,
+            dataloader=test_loader,
+            work_dir=config.work_dir,
             device='cuda',
             save_results_path=config.save_results_path
         )
@@ -91,6 +93,10 @@ def main():
             start_epoch=start_epoch,
             best_val_accuracy=best_val_accuracy
         )
+        
+        #load best model checkpoint
+        best_model_path = join(config.work_dir, 'best_model.pth')
+        start_epoch, best_val_accuracy = load_checkpoint(best_model_path, model, optimizer)
 
         test_model(
             model=model,

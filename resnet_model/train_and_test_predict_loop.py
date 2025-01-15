@@ -121,6 +121,7 @@ def test_model_with_evaluation(model,
                save_results_path='',
                verbose=True ):
     
+    
     model.eval()
     total_verb_correct = 0
     total_target_correct = 0
@@ -170,7 +171,17 @@ def test_model_with_evaluation(model,
 
 
 # Predict loop
-def predict_with_model(model, dataloader, save_results_path='', device='cuda', verbose=True):
+def predict_with_model(model, 
+                       dataloader,
+                       work_dir,
+                       save_results_path='',
+                       device='cuda',
+                       verbose=True):
+    
+    # Create the save directory if it doesn't exist
+    os.makedirs(work_dir, exist_ok=True)   
+    
+    model = model.to(device)
     model.eval()
     results = {}  # Dictionary to store predictions
     
@@ -198,6 +209,7 @@ def predict_with_model(model, dataloader, save_results_path='', device='cuda', v
                     "instance_id": instance_id[i]
                 }
 
+    
     # Save predictions to JSON
     with open(save_results_path, 'w') as f:
         json.dump(results, f, indent=4)
