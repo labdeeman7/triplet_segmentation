@@ -1,7 +1,8 @@
 from os.path import join
+import os
 
 # Hyperparameters
-batch_size = 64
+batch_size = 16
 num_epochs = 50
 learning_rate = 0.001
 
@@ -10,11 +11,20 @@ import os
 experiment_name = os.path.splitext(os.path.basename(__file__))[0]
 
 # Model name
-model_name = 'MultiTaskResNetFPNTrainableEmbeddings'
+model_name = 'MultiTaskResNetFPNLearnableEmbeddings'
 
 # Dataset Directories
+# env = 
+# if 
+if os.name == 'posix':  # Unix-like systems (Linux, macOS)
+    dataset_path = '/nfs/home/talabi/data/triplet_segmentation_dataset_v2_second_stage'
+elif os.name == 'nt':  # Windows systems
+    dataset_path = 'C:/User/talabi/data/triplet_segmentation_dataset_v2_second_stage'
+else:
+    raise EnvironmentError("Unsupported operating system. Unable to set dataset_path.")
+
 # dataset_path = '/nfs/home/talabi/data/triplet_segmentation_dataset_v2_second_stage'
-dataset_path = 'C:/Users/tal22/Documents/repositories/triplet_segmentation/data/triplet_segmentation_dataset_v2_second_stage'
+# dataset_path = 'C:/Users/tal22/Documents/repositories/triplet_segmentation/data/triplet_segmentation_dataset_v2_second_stage'
 verb_and_target_gt_present_for_test = False
 
 train_image_dir = join(dataset_path, 'train/img_dir')

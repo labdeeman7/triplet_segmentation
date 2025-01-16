@@ -75,7 +75,7 @@ def train_model(model,
         val_accuracy = test_model_with_evaluation(model, 
                                   val_loader, 
                                   device=device, 
-                                  verbose=False)
+                                  verbose=True)
 
         # Save the best model
         if val_accuracy > best_val_accuracy:

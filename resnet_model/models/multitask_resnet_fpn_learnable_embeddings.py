@@ -5,7 +5,7 @@ from torchvision.ops import FeaturePyramidNetwork
 from collections import OrderedDict
 
 # Multitask ResNet
-class MultiTaskResNetFPNTrainableEmbeddings(nn.Module):
+class MultiTaskResNetFPNLearnableEmbeddings(nn.Module):
     def __init__(self, 
                  num_instruments, 
                  num_verbs, 
@@ -14,7 +14,7 @@ class MultiTaskResNetFPNTrainableEmbeddings(nn.Module):
                  decoder_hidden_dim=64, 
                  num_decoder_layers=3):
         
-        super(MultiTaskResNetFPNTrainableEmbeddings, self).__init__()
+        super(MultiTaskResNetFPNLearnableEmbeddings, self).__init__()
         self.resnet = models.resnet50(pretrained=True)
         # Modify the first convolutional layer to accept 4 channels
         original_conv1 = self.resnet.conv1
