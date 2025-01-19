@@ -2,6 +2,7 @@ import torch
 import json
 import os
 import wandb
+import types
 
 
 def save_checkpoint(model, optimizer, epoch, best_val_accuracy, file_path):
@@ -41,8 +42,13 @@ def train_model(config,
                 verbose=True):
     
     # Initialize WandB
-    wandb_config = {key: value for key, value in vars(config).items() if not key.startswith("__") and not callable(value)}
-    print(wandb_config)
+    wandb_config = {
+        key: value
+        for key, value in vars(config).items()
+        if not key.startswith("__") and not callable(value) and not isinstance(value, types.ModuleType)
+    }
+    
+    print('config', wandb_config)
     wandb.init(project="triplet_segmentation", config=wandb_config)
     wandb.watch(model, log="all")
     
@@ -72,17 +78,21 @@ def train_model(config,
             verb_preds, target_preds = model(img, mask, instrument_id)
 
             # Compute loss
-            loss = loss_fn(verb_preds, target_preds, verb_id, target_id)
-            
-            # Compute accuracy
-            total_verb_correct += (verb_preds == verb_id).sum().item()
-            total_target_correct += (target_preds == target_id).sum().item()
-            total_samples += img.size(0)
+            loss = loss_fn(verb_preds, target_preds, verb_id, target_id)   
 
             # Backward pass and optimization
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
+            
+            # Get predicted classes
+            verb_preds = torch.argmax(verb_preds, dim=1)
+            target_preds = torch.argmax(target_preds, dim=1)
+            
+            # Compute accuracy
+            total_verb_correct += (verb_preds == verb_id).sum().item()
+            total_target_correct += (target_preds == target_id).sum().item()
+            total_samples += img.size(0)
         
         # Calculate metrics
         train_loss = running_loss / len(train_loader)
