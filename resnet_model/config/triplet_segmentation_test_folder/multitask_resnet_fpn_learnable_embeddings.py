@@ -2,9 +2,9 @@ from os.path import join
 import os
 
 # Hyperparameters
-batch_size = 16
+batch_size = 32
 num_epochs = 50
-learning_rate = 0.001
+learning_rate = 0.005
 
 # Dynamically set the experiment name from the filename
 import os

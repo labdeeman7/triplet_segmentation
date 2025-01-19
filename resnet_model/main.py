@@ -11,6 +11,7 @@ from loss import MultiTaskLoss
 from custom_transform import CustomTransform
 from utils.general.dataset_variables import TripletSegmentationVariables
 from train_and_test_predict_loop import train_model, test_model, load_checkpoint, predict_with_model
+import wandb
 
 
 def main():
@@ -73,21 +74,22 @@ def main():
     if config.predict_only_mode:
         assert config.load_from_checkpoint, "A checkpoint to load the model is required for prediction mode."
         predict_with_model(
+            config=config,
             model=model,
             dataloader=test_loader,
-            work_dir=config.work_dir,
             device='cuda',
             save_results_path=config.save_results_path
         )
-    else:
+    else:      
+    
         # Train and test the model
         train_model(
+            config=config,
             model=model,
             train_loader=train_loader,
             val_loader=val_loader,
             optimizer=optimizer,
             loss_fn=loss_fn,
-            work_dir=config.work_dir,
             num_epochs=config.num_epochs,
             device='cuda',
             start_epoch=start_epoch,
@@ -97,14 +99,14 @@ def main():
         #load best model checkpoint
         best_model_path = join(config.work_dir, 'best_model.pth')
         start_epoch, best_val_accuracy = load_checkpoint(best_model_path, model, optimizer)
-
+        
         test_model(
+            config=config,
             model=model,
             dataloader=test_loader,
             device='cuda',
             save_results_path=config.save_results_path,
             verbose=True,
-            verb_and_target_gt_present_for_test=config.verb_and_target_gt_present_for_test
         )
 
 

@@ -1,6 +1,7 @@
 import torch
 import json
 import os
+import wandb
 
 
 def save_checkpoint(model, optimizer, epoch, best_val_accuracy, file_path):
@@ -27,25 +28,36 @@ def load_checkpoint(file_path, model, optimizer=None):
     return epoch, best_val_accuracy
 
 
-def train_model(model, 
+def train_model(config,
+                model, 
                 train_loader, 
                 val_loader, 
                 optimizer, 
                 loss_fn, 
-                work_dir,
                 num_epochs=10, 
                 device='cuda', 
                 start_epoch=0,
-                best_val_accuracy=0.0 ):
+                best_val_accuracy=0.0, 
+                verbose=True):
+    
+    # Initialize WandB
+    wandb_config = {key: value for key, value in vars(config).items() if not key.startswith("__") and not callable(value)}
+    print(wandb_config)
+    wandb.init(project="triplet_segmentation", config=wandb_config)
+    wandb.watch(model, log="all")
+    
     model = model.to(device)
 
     # Create the save directory if it doesn't exist
-    os.makedirs(work_dir, exist_ok=True)    
+    os.makedirs(config.work_dir, exist_ok=True)    
 
     for epoch in range(start_epoch, num_epochs):
         print(f'started epoch {epoch}', flush=True)
         model.train()
         running_loss = 0.0
+        total_verb_correct = 0
+        total_target_correct = 0
+        total_samples = 0
 
         for img, mask, instrument_id, instance_id, verb_id, target_id, mask_name in train_loader:
             img = img.to(device)
@@ -61,66 +73,102 @@ def train_model(model,
 
             # Compute loss
             loss = loss_fn(verb_preds, target_preds, verb_id, target_id)
+            
+            # Compute accuracy
+            total_verb_correct += (verb_preds == verb_id).sum().item()
+            total_target_correct += (target_preds == target_id).sum().item()
+            total_samples += img.size(0)
 
             # Backward pass and optimization
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
-            
+        
+        # Calculate metrics
+        train_loss = running_loss / len(train_loader)
+        verb_accuracy = total_verb_correct / total_samples
+        target_accuracy = total_target_correct / total_samples    
                         
-
-        print(f"Epoch {epoch+1}/{num_epochs}, Loss: {running_loss / len(train_loader):.4f}", flush=True)
+        if verbose:
+            print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {train_loss:.4f}", flush=True)
+            print(f"Train Verb Accuracy: {verb_accuracy:.2f}", flush=True)
+            print(f"Train Target Accuracy: {target_accuracy:.2f}", flush=True)
+        
+        
+        # Log training metrics to WandB
+        wandb.log({
+            "epoch": epoch + 1,
+            "train_loss": train_loss,
+            "train_verb_accuracy": verb_accuracy,
+            "train_target_accuracy": target_accuracy,
+        })    
+        
+            
 
         # Validate the model
-        val_accuracy = test_model_with_evaluation(model, 
-                                  val_loader, 
-                                  device=device, 
-                                  verbose=True)
+        print('Validation')
+        val_verb_accuracy, val_target_accuracy = test_model_with_evaluation(config,
+                                                model, 
+                                                val_loader, 
+                                                device=device, 
+                                                verbose=True)
 
+        average_val_accuracy = (val_verb_accuracy + val_target_accuracy)
+        wandb.log({
+            "val_verb_accuracy": val_verb_accuracy,
+            "val_target_accuracy": val_target_accuracy,
+            "average_val_accuracy": average_val_accuracy,
+        })
+        
+        
         # Save the best model
-        if val_accuracy > best_val_accuracy:
-            best_val_accuracy = val_accuracy
-            best_model_path = os.path.join(work_dir, "best_model.pth")
+        if average_val_accuracy > best_val_accuracy:
+            best_val_accuracy = average_val_accuracy
+            best_model_path = os.path.join(config.work_dir, "best_model.pth")
             save_checkpoint(model, optimizer, epoch, best_val_accuracy, best_model_path)
             print(f"New best model saved to {best_model_path} with accuracy {best_val_accuracy:.2f}", flush=True)
 
         # Save the latest model
-        latest_model_path = os.path.join(work_dir, f"epoch_{epoch}.pth")
+        latest_model_path = os.path.join(config.work_dir, f"epoch_{epoch+1}.pth")
         save_checkpoint(model, optimizer, epoch, best_val_accuracy, latest_model_path)
         
         # Delete previous if it exist
-        previous_saved_model_path = os.path.join(work_dir, f"epoch_{epoch-1}.pth")
+        previous_saved_model_path = os.path.join(config.work_dir, f"epoch_{epoch}.pth")
 
         if os.path.exists(previous_saved_model_path):
             os.remove(previous_saved_model_path)
 
-def test_model(model, 
+
+def test_model(config,
+               model, 
                dataloader, 
                device='cuda', 
                save_results_path='',
-               verbose=True,
-               verb_and_target_gt_present_for_test=True):
+               verbose=True):
     
-    if verb_and_target_gt_present_for_test:
-        test_model_with_evaluation(model = model, 
-                dataloader = dataloader, 
-                device=device, 
-                save_results_path=save_results_path,
-                verbose=verbose )
+    if config.verb_and_target_gt_present_for_test:
+        test_model_with_evaluation(config=config, 
+                                model = model, 
+                                dataloader = dataloader, 
+                                device=device, 
+                                save_results_path=save_results_path,
+                                verbose=verbose )
     else:
-        predict_with_model(model = model, 
-                dataloader = dataloader, 
-                device=device, 
-                save_results_path=save_results_path,
-                verbose=verbose )
+        predict_with_model(config=config, 
+                           model = model, 
+                            dataloader = dataloader,   
+                            device=device, 
+                            save_results_path=save_results_path,
+                            verbose=verbose )
         
             
 
-def test_model_with_evaluation(model, 
-               dataloader, 
-               device='cuda', 
-               save_results_path='',
-               verbose=True ):
+def test_model_with_evaluation(config,
+                            model, 
+                            dataloader, 
+                            device='cuda', 
+                            save_results_path='',
+                            verbose=True ):
     
     
     model.eval()
@@ -161,26 +209,28 @@ def test_model_with_evaluation(model,
     target_accuracy = total_target_correct / total_samples
 
     if verbose:
-        print(f"Validation Verb Accuracy: {verb_accuracy:.2f}", flush=True)
-        print(f"Validation Target Accuracy: {target_accuracy:.2f}", flush=True)
+        print(f"  Verb Accuracy: {verb_accuracy:.2f}", flush=True)
+        print(f"  Target Accuracy: {target_accuracy:.2f}", flush=True) 
 
     if save_results_path:  # Save predictions to JSON
         with open(save_results_path, 'w') as f:
             json.dump(results, f, indent=4)
 
-    return (verb_accuracy + target_accuracy) / 2  # Average accuracy
+    return verb_accuracy, target_accuracy  #Return both accuracy
 
 
 # Predict loop
-def predict_with_model(model, 
+def predict_with_model(config,
+                       model, 
                        dataloader,
-                       work_dir,
                        save_results_path='',
                        device='cuda',
                        verbose=True):
     
+    
+    
     # Create the save directory if it doesn't exist
-    os.makedirs(work_dir, exist_ok=True)   
+    os.makedirs(config.work_dir, exist_ok=True)   
     
     model = model.to(device)
     model.eval()
@@ -209,7 +259,6 @@ def predict_with_model(model,
                     "target": target_preds[i].item(),
                     "instance_id": instance_id[i]
                 }
-
     
     # Save predictions to JSON
     with open(save_results_path, 'w') as f:
