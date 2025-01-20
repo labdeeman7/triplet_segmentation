@@ -17,7 +17,7 @@ VERB_CLASS_TO_ID_DICT = {verb_class: verb_id for verb_id, verb_class in VERB_ID_
 TARGET_CLASS_TO_ID_DICT = {target_class: target_id for target_id, target_class in TARGET_ID_TO_CLASS_DICT.items()}
 
 # Custom Dataset
-class SurgicalDataset(Dataset):
+class SurgicalMultitaskDataset(Dataset):
     def __init__(self, 
                  img_dir, 
                  ann_for_second_stage_dir,
@@ -57,9 +57,7 @@ class SurgicalDataset(Dataset):
 
         return img, mask, instrument_id, instance_id, verb_id, target_id, ann_for_second_stage_name_base
     
-
-
-class PredictionDataset(Dataset):
+class PredictionMultitaskDataset(Dataset):
     def __init__(self, 
                  img_dir, 
                  ann_for_second_stage_dir,

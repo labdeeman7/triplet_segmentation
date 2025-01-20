@@ -6,11 +6,11 @@ import argparse
 import importlib
 import torch
 from torch.utils.data import DataLoader
-from dataset import SurgicalDataset, PredictionDataset
+from resnet_model.dataset_multitask import SurgicalMultitaskDataset, PredictionMultitaskDataset
 from loss import MultiTaskLoss
 from custom_transform import CustomTransform
 from utils.general.dataset_variables import TripletSegmentationVariables
-from train_and_test_predict_loop import train_model, test_model, load_checkpoint, predict_with_model
+from resnet_model.train_test_predict_loop_multitask import train_model, test_model, load_checkpoint, predict_with_model
 import wandb
 
 
@@ -42,16 +42,16 @@ def main():
     transform = CustomTransform(image_size=config.image_size)
 
     # Datasets and DataLoaders
-    train_dataset = SurgicalDataset(config.train_image_dir, config.train_ann_dir, transform, train_mode=True)
-    val_dataset = SurgicalDataset(config.val_image_dir, config.val_ann_dir, transform, train_mode=True)
+    train_dataset = SurgicalMultitaskDataset(config.train_image_dir, config.train_ann_dir, transform, train_mode=True)
+    val_dataset = SurgicalMultitaskDataset(config.val_image_dir, config.val_ann_dir, transform, train_mode=True)
 
     train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=True)
 
     if config.verb_and_target_gt_present_for_test:
-        test_dataset = SurgicalDataset(config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
+        test_dataset = SurgicalMultitaskDataset(config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
     else:
-        test_dataset = PredictionDataset(config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
+        test_dataset = PredictionMultitaskDataset(config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
 
     test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False)
 

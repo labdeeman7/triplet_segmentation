@@ -5,6 +5,7 @@ class TripletSegmentationVariables(object):
     num_verbs = 10
     num_targets = 15
     num_triplets = 100
+    num_verbtargets = 56
     
     width = 854
     height = 480
@@ -161,7 +162,66 @@ class TripletSegmentationVariables(object):
             '98': 'scissors,null_verb,null_target',
             '99': 'clipper,null_verb,null_target',
             '100': 'irrigator,null_verb,null_target'
-        }
+        },
+    
+    'verbtarget': {
+            '1': 'dissect,cystic_plate',
+            '2': 'dissect,gallbladder',
+            '3': 'dissect,omentum',
+            '4': 'grasp,cystic_artery',
+            '5': 'grasp,cystic_duct',
+            '6': 'grasp,cystic_pedicle',
+            '7': 'grasp,cystic_plate',
+            '8': 'grasp,gallbladder',
+            '9': 'grasp,gut',
+            '10': 'grasp,liver',
+            '11': 'grasp,omentum',
+            '12': 'grasp,peritoneum',
+            '13': 'grasp,specimen_bag',
+            '14': 'pack,gallbladder',
+            '15': 'retract,cystic_duct',
+            '16': 'retract,cystic_pedicle',
+            '17': 'retract,cystic_plate',
+            '18': 'retract,gallbladder',
+            '19': 'retract,gut',
+            '20': 'retract,liver',
+            '21': 'retract,omentum',
+            '22': 'retract,peritoneum',
+            '23': 'coagulate,abdominal_wall_cavity',
+            '24': 'coagulate,blood_vessel',
+            '25': 'coagulate,cystic_artery',
+            '26': 'coagulate,cystic_duct',
+            '27': 'coagulate,cystic_pedicle',
+            '28': 'coagulate,cystic_plate',
+            '29': 'coagulate,gallbladder',
+            '30': 'coagulate,liver',
+            '31': 'coagulate,omentum',
+            '32': 'coagulate,peritoneum',
+            '33': 'dissect,adhesion',
+            '34': 'dissect,cystic_artery',
+            '35': 'dissect,cystic_duct',
+            '36': 'cut,blood_vessel',
+            '37': 'cut,peritoneum',
+            '38': 'dissect,blood_vessel',
+            '39': 'dissect,peritoneum',
+            '40': 'cut,adhesion',
+            '41': 'cut,cystic_artery',
+            '42': 'cut,cystic_duct',
+            '43': 'cut,cystic_plate',
+            '44': 'cut,liver',
+            '45': 'cut,omentum',
+            '46': 'clip,blood_vessel',
+            '47': 'clip,cystic_artery',
+            '48': 'clip,cystic_duct',
+            '49': 'clip,cystic_pedicle',
+            '50': 'clip,cystic_plate',
+            '51': 'aspirate,fluid',
+            '52': 'dissect,cystic_pedicle',
+            '53': 'irrigate,abdominal_wall_cavity',
+            '54': 'irrigate,cystic_pedicle',
+            '55': 'irrigate,liver',
+            '56': 'null_verb,null_target'}
+    
     }
     
     instrument_colors = {

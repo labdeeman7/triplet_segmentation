@@ -10,3 +10,4 @@ class MultiTaskLoss(nn.Module):
         loss_verb = self.criterion_verb(verb_preds, verb_labels)
         loss_target = self.criterion_target(target_preds, target_labels)
         return loss_verb + loss_target
+    
