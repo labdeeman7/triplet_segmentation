@@ -13,6 +13,7 @@ experiment_name = os.path.splitext(os.path.basename(__file__))[0]
 # Model name
 model_name = 'SingleTaskResNetFPN'
 task_name = 'verbtarget'
+description =  f'resnet_fpn predicting {task_name} only'
 
 # Dataset Directories
 if os.name == 'posix':  # Unix-like systems (Linux, macOS)
@@ -38,6 +39,7 @@ work_dir = f'../resnet_model/work_dirs/{experiment_name}'
 save_results_path = join(work_dir, 'results.json')
 
 # Checkpoint and Prediction Settings
+allow_resume = True # allows resumption from latest checkpoint
 load_from_checkpoint = None
 predict_only_mode = False
 

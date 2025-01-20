@@ -3,31 +3,7 @@ import json
 import os
 import wandb
 import types
-
-
-def save_checkpoint(model, optimizer, epoch, best_val_accuracy, file_path):
-    """Saves a checkpoint of the model."""
-    checkpoint = {
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'epoch': epoch,
-        'best_val_accuracy': best_val_accuracy
-    }
-    torch.save(checkpoint, file_path)
-    print(f"Checkpoint saved to {file_path}", flush=True)
-
-
-def load_checkpoint(file_path, model, optimizer=None):
-    """Loads a checkpoint and restores the model and optimizer states."""
-    checkpoint = torch.load(file_path)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    if optimizer:
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    epoch = checkpoint['epoch']
-    best_val_accuracy = checkpoint['best_val_accuracy']
-    print(f"Checkpoint loaded from {file_path}, starting from epoch {epoch+1}", flush=True)
-    return epoch, best_val_accuracy
-
+from resnet_model.checkpoint_utils import save_checkpoint
 
 def train_model(config,
                 model, 
@@ -50,7 +26,6 @@ def train_model(config,
     
     print('config', wandb_config)
     wandb.init(project="triplet_segmentation", config=wandb_config)
-    wandb.watch(model, log="all")
     
     model = model.to(device)
 

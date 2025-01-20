@@ -12,6 +12,9 @@ experiment_name = os.path.splitext(os.path.basename(__file__))[0]
 
 # Model name
 model_name = 'MultiTaskResNetFPNMaskedEmbeddingsSharedTransformerDecoder'
+description =  'Use a query based decoder where the verb and targets are predicted from the decoder'
+
+                        
 
 # Dataset Directories
 # env = 
@@ -42,6 +45,7 @@ work_dir = f'../resnet_model/work_dirs/{experiment_name}'
 save_results_path = join(work_dir, 'results.json')
 
 # Checkpoint and Prediction Settings
+allow_resume = True # allows resumption from latest checkpoint
 load_from_checkpoint = None
 predict_only_mode = False
 

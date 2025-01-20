@@ -3,6 +3,7 @@ sys.path.append('../')
 import torch.nn as nn
 
 from os.path import join
+import os
 import argparse
 import importlib
 import torch
@@ -11,8 +12,8 @@ from resnet_model.dataset_singletask import SurgicalSingletaskDataset, Predictio
 from loss import MultiTaskLoss
 from custom_transform import CustomTransform
 from utils.general.dataset_variables import TripletSegmentationVariables
-from resnet_model.train_test_predict_loop_singletask import train_model, test_model, load_checkpoint, predict_with_model
-
+from resnet_model.train_test_predict_loop_singletask import train_model, test_model, predict_with_model
+from resnet_model.checkpoint_utils import load_checkpoint, load_checkpoint_from_latest
 
 def main():
     # Argument parser
@@ -66,7 +67,7 @@ def main():
     elif config.task_name == 'verbtarget': 
         num_task_class = TripletSegmentationVariables.num_verbtargets
     else:
-        raise ValueError("we currently only accept 'predict_verb', 'predict_target', 'predict_verbtarget' ")
+        raise ValueError("we currently only accept 'verb', 'target', 'verbtarget' ")
     
 
     model = model_class(num_instruments, num_task_class)
@@ -76,8 +77,16 @@ def main():
     # Resume training from checkpoint if provided
     start_epoch = 0
     best_val_accuracy = 0.0
+    
+    #allow for resumption
+    if config.allow_resume:
+        if os.path.isdir(config.work_dir) and len(os.listdir(config.work_dir) ):            
+            start_epoch, best_val_accuracy = load_checkpoint_from_latest(config, model, optimizer)
+            print(f'resuming from epoch, {start_epoch}, best_val_accuracy {best_val_accuracy}' )
+    
     if config.load_from_checkpoint:
-        start_epoch, best_val_accuracy = load_checkpoint(config.load_from_checkpoint, model, optimizer)
+        start_epoch, best_val_accuracy = load_checkpoint(config, model, optimizer)
+        print(f'load from epoch, {start_epoch}, best_val_accuracy {best_val_accuracy}' )
 
     # Run in prediction mode
     if config.predict_only_mode:
@@ -89,8 +98,7 @@ def main():
             device='cuda',
             save_results_path=config.save_results_path
         )
-    else:      
-    
+    else:              
         # Train and test the model
         train_model(
             config=config,

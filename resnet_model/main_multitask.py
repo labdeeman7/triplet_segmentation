@@ -1,6 +1,6 @@
 import sys
 sys.path.append('../')
-
+import os
 from os.path import join
 import argparse
 import importlib
@@ -10,8 +10,8 @@ from resnet_model.dataset_multitask import SurgicalMultitaskDataset, PredictionM
 from loss import MultiTaskLoss
 from custom_transform import CustomTransform
 from utils.general.dataset_variables import TripletSegmentationVariables
-from resnet_model.train_test_predict_loop_multitask import train_model, test_model, load_checkpoint, predict_with_model
-import wandb
+from resnet_model.train_test_predict_loop_multitask import train_model, test_model, predict_with_model
+from resnet_model.checkpoint_utils import load_checkpoint, load_checkpoint_from_latest
 
 
 def main():
@@ -67,8 +67,15 @@ def main():
     # Resume training from checkpoint if provided
     start_epoch = 0
     best_val_accuracy = 0.0
+    
+    if config.allow_resume:
+        if os.path.isdir(config.work_dir) and len(os.listdir(config.work_dir)):
+            start_epoch, best_val_accuracy = load_checkpoint_from_latest(config, model, optimizer)
+            print(f'resuming from epoch, {start_epoch}, best_val_accuracy {best_val_accuracy}' )
+    
     if config.load_from_checkpoint:
         start_epoch, best_val_accuracy = load_checkpoint(config.load_from_checkpoint, model, optimizer)
+        print(f'load from epoch, {start_epoch}, best_val_accuracy {best_val_accuracy}' )
 
     # Run in prediction mode
     if config.predict_only_mode:
