@@ -13,6 +13,7 @@ experiment_name = os.path.splitext(os.path.basename(__file__))[0]
 # Model name
 model_name = 'SingleTaskResNetFPN'
 task_name = 'verb'
+architecture = 'singletask'
 description =  f'resnet_fpn predicting {task_name} only'
 
 # Dataset Directories

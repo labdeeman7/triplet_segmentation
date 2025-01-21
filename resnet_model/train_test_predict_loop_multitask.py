@@ -5,7 +5,7 @@ import wandb
 import types
 from resnet_model.checkpoint_utils import save_checkpoint
 
-def train_model(config,
+def train_model_multitask(config,
                 model, 
                 train_loader, 
                 val_loader, 
@@ -92,7 +92,7 @@ def train_model(config,
 
         # Validate the model
         print('Validation')
-        val_verb_accuracy, val_target_accuracy = test_model_with_evaluation(config,
+        val_verb_accuracy, val_target_accuracy = test_model_with_evaluation_multitask(config,
                                                 model, 
                                                 val_loader, 
                                                 device=device, 
@@ -123,8 +123,7 @@ def train_model(config,
         if os.path.exists(previous_saved_model_path):
             os.remove(previous_saved_model_path)
 
-
-def test_model(config,
+def test_model_multitask(config,
                model, 
                dataloader, 
                device='cuda', 
@@ -132,23 +131,21 @@ def test_model(config,
                verbose=True):
     
     if config.verb_and_target_gt_present_for_test:
-        test_model_with_evaluation(config=config, 
+        test_model_with_evaluation_multitask(config=config, 
                                 model = model, 
                                 dataloader = dataloader, 
                                 device=device, 
                                 save_results_path=save_results_path,
                                 verbose=verbose )
     else:
-        predict_with_model(config=config, 
+        predict_with_model_multitask(config=config, 
                            model = model, 
                             dataloader = dataloader,   
                             device=device, 
                             save_results_path=save_results_path,
                             verbose=verbose )
         
-            
-
-def test_model_with_evaluation(config,
+def test_model_with_evaluation_multitask(config,
                             model, 
                             dataloader, 
                             device='cuda', 
@@ -203,9 +200,8 @@ def test_model_with_evaluation(config,
 
     return verb_accuracy, target_accuracy  #Return both accuracy
 
-
 # Predict loop
-def predict_with_model(config,
+def predict_with_model_multitask(config,
                        model, 
                        dataloader,
                        save_results_path='',
