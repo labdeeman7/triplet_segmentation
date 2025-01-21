@@ -2,8 +2,8 @@ from os.path import join
 import os
 
 # Hyperparameters
-batch_size = 32
-num_epochs = 50
+batch_size = 64
+num_epochs = 20
 learning_rate = 0.0005
 
 # Dynamically set the experiment name from the filename
@@ -37,6 +37,7 @@ test_ann_dir = join(dataset_path, 'mask2former_instrument_prediction/ann_second_
 # Working Directory
 work_dir = f'../resnet_model/work_dirs/{experiment_name}'
 save_results_path = join(work_dir, 'results.json')
+save_latest_results_path = join(work_dir, 'results_latest.json')
 
 # Checkpoint and Prediction Settings
 allow_resume = True # allows resumption from latest checkpoint

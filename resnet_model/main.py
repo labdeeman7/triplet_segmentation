@@ -113,6 +113,16 @@ def main():
             best_val_accuracy=best_val_accuracy
         )
         
+        # save from latest
+        test_model(
+            config=config,
+            model=model,
+            dataloader=test_loader,
+            device='cuda',
+            save_results_path=config.save_latest_results_path,
+            verbose=True,
+        )
+        
         #load best model checkpoint
         best_model_path = join(config.work_dir, 'best_model.pth')
         start_epoch, best_val_accuracy = load_checkpoint(best_model_path, model, optimizer)
