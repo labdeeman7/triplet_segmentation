@@ -31,6 +31,7 @@ class SurgicalSingletaskDataset(Dataset):
         self.transform = transform
         self.train_mode = train_mode
         self.task_name = config.task_name
+        self.class_name = 'SurgicalSingletaskDataset'
         
         self.ann_for_second_stage_names = os.listdir(self.ann_for_second_stage_dir) 
         self.img_paths = os.listdir(self.img_dir) 
@@ -52,8 +53,6 @@ class SurgicalSingletaskDataset(Dataset):
         elif self.task_name == 'target': 
             task_id = int(TARGET_CLASS_TO_ID_DICT[target_name])-1
         elif self.task_name == 'verbtarget': 
-            # print(f'{verb_name},{target_name}')
-            # print(VERBTARGET_CLASS_TO_ID_DICT)
             task_id = int(VERBTARGET_CLASS_TO_ID_DICT[f'{verb_name},{target_name}'])-1               
         
         instrument_id = int(INSTRUMENT_CLASS_TO_ID_DICT[instrument_name])-1
@@ -79,6 +78,7 @@ class SurgicalMultitaskDataset(Dataset):
         self.ann_for_second_stage_dir = ann_for_second_stage_dir
         self.transform = transform
         self.train_mode = train_mode
+        self.class_name = 'SurgicalMultitaskDataset'
         
         self.ann_for_second_stage_names = os.listdir(self.ann_for_second_stage_dir) 
         self.img_paths = os.listdir(self.img_dir) 
@@ -120,6 +120,7 @@ class PredictionDataset(Dataset):
         self.ann_for_second_stage_dir = ann_for_second_stage_dir
         self.transform = transform
         self.train_mode = train_mode
+        self.class_name = 'PredictionDataset'
         
         self.ann_for_second_stage_names = os.listdir(self.ann_for_second_stage_dir) 
         self.img_paths = os.listdir(self.img_dir) 

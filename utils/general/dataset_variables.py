@@ -1,6 +1,8 @@
+from collections import OrderedDict
 class TripletSegmentationVariables(object):    
     
-    dataset_size = 21443
+    dataset_size_v2 = 21443
+    dataset_size_v3 = 65433
     num_instuments = 6
     num_verbs = 10
     num_targets = 15
@@ -11,26 +13,26 @@ class TripletSegmentationVariables(object):
     height = 480
         
     categories = {
-    'instrument': {
+    'instrument': OrderedDict({
         '1': 'grasper',
         '2': 'bipolar',
         '3': 'hook',
         '4': 'scissors',
         '5': 'clipper',
         '6': 'irrigator'
-    },
+    }),
     
-    # 'instrument_direct_pred': {
-    #     '1': 'grasper',
-    #     '2': 'hook',
-    #     '3': 'irrigator',
-    #     '4': 'clipper',
-    #     '5': 'bipolar',
-    #     '6': 'scissors',
-    #     '7': 'snare'
-    # },
+    'instrument_direct_pred': OrderedDict({
+        '1': 'grasper',
+        '2': 'hook',
+        '3': 'irrigator',
+        '4': 'clipper',
+        '5': 'bipolar',
+        '6': 'scissors',
+        '7': 'snare'
+    }),
        
-    'verb': {
+    'verb': OrderedDict({
         '1': 'grasp',
         '2': 'retract',
         '3': 'dissect',
@@ -41,9 +43,9 @@ class TripletSegmentationVariables(object):
         '8': 'irrigate',
         '9': 'pack',
         '10': 'null_verb'
-    },
+    }),
     
-    'target': {
+    'target': OrderedDict({
         '1': 'gallbladder',
         '2': 'cystic_plate',
         '3': 'cystic_duct',
@@ -59,9 +61,9 @@ class TripletSegmentationVariables(object):
         '13': 'gut',
         '14': 'specimen_bag',
         '15': 'null_target'
-    },
+    }),
     
-    'triplet': {
+    'triplet': OrderedDict({
             '1': 'grasper,dissect,cystic_plate',
             '2': 'grasper,dissect,gallbladder',
             '3': 'grasper,dissect,omentum',
@@ -162,9 +164,9 @@ class TripletSegmentationVariables(object):
             '98': 'scissors,null_verb,null_target',
             '99': 'clipper,null_verb,null_target',
             '100': 'irrigator,null_verb,null_target'
-        },
+        }),
     
-    'verbtarget': {
+    'verbtarget': OrderedDict({
             '1': 'dissect,cystic_plate',
             '2': 'dissect,gallbladder',
             '3': 'dissect,omentum',
@@ -220,7 +222,7 @@ class TripletSegmentationVariables(object):
             '53': 'irrigate,abdominal_wall_cavity',
             '54': 'irrigate,cystic_pedicle',
             '55': 'irrigate,liver',
-            '56': 'null_verb,null_target'}
+            '56': 'null_verb,null_target'})
     
     }
     
@@ -306,7 +308,55 @@ class TripletSegmentationVariables(object):
         'VID96_t50_sparse': 'train',
         }
     
-    
-
-    
-    
+    seq_to_split_dict_v3_gt_plus_prototype = {
+        'VID14': 'test',
+        'VID15': 'test',
+        'VID22': 'test',
+        'VID49': 'test',
+        'VID50': 'test',
+        'VID51': 'test',
+        'VID65': 'test',
+        'VID66': 'test',
+        'VID29': 'val',
+        'VID110': 'val',
+        'VID111': 'val',
+        'VID23': 'train',
+        'VID01': 'train',
+        'VID02': 'train',
+        'VID04': 'train',
+        'VID05': 'train',
+        'VID06': 'train',
+        'VID08': 'train',
+        'VID103': 'train',
+        'VID10': 'train',
+        'VID12': 'train',
+        'VID13': 'train',
+        'VID18': 'train',
+        'VID25': 'train',
+        'VID26': 'train',
+        'VID27': 'train',
+        'VID31': 'train',
+        'VID32': 'train',
+        'VID35': 'train',
+        'VID36': 'train',
+        'VID40': 'train',
+        'VID42': 'train',
+        'VID43': 'train',
+        'VID47': 'train',
+        'VID48': 'train',
+        'VID52': 'train',
+        'VID56': 'train',
+        'VID57': 'train',
+        'VID60': 'train',
+        'VID62': 'train',
+        'VID68': 'train',
+        'VID70': 'train',
+        'VID73': 'train',
+        'VID74': 'train',
+        'VID75': 'train',
+        'VID78': 'train',
+        'VID79': 'train',
+        'VID80': 'train',
+        'VID92': 'train',
+        'VID96': 'train'
+        }

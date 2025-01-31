@@ -143,6 +143,35 @@ def move_files_to_seq_folder(target_dir, source_dir, file_type, sparse_or_full_d
     
     os.rmdir(source_dir) #remove the img_dir and ann_dir
     return
+
+def move_files_to_seq_folder_not_worrying_about_sparse_or_full(target_dir, source_dir, file_type):
+    for file_name in os.listdir(source_dir):
+        # Determine the sequence folder from the file name
+        seq_folder_name =file_name.split('.')[0].split('_')[1]
+        target_seq_folder_path = os.path.join(target_dir, seq_folder_name)
+        
+        # Ensure the sequence folder exists
+        check_if_dir_exists_if_not_create_it(target_seq_folder_path)
+        
+        # Ensure img_dir and ann_dir exists inside the sequence folder
+        if file_type == 'img':
+            target_subfolder = 'img_dir'
+        elif  file_type == 'ann':
+            target_subfolder = 'ann_dir'
+        elif  file_type == 'ann_vis_dir':
+            target_subfolder = 'ann_vis_dir'           
+        else:
+            raise ValueError('img_dir, ann_dir, and ann_vis_dir are the only supported formats.')
+            
+        
+        target_img_or_ann_folder_path = os.path.join(target_seq_folder_path, target_subfolder)
+        check_if_dir_exists_if_not_create_it(target_img_or_ann_folder_path)
+        
+        # Move the file
+        shutil.move(os.path.join(source_dir, file_name), os.path.join(target_img_or_ann_folder_path, file_name))
+    
+    os.rmdir(source_dir) #remove the img_dir and ann_dir
+    return
     
 
 def dataset_seqs_to_dataset_split(dataset_dir, seq_to_split_dict):
@@ -179,7 +208,7 @@ def dataset_split_to_dataset_seqs(dataset_dir, seq_to_split_dict):
 
 def dataset_split_to_standard_mmdetection_form(dataset_dir, seq_to_split_dict):
     #check current folder structure is correct
-    check_if_current_directory_structure_is_as_expected(dataset_dir, 'dataset_split', seq_to_split_dict)
+    # check_if_current_directory_structure_is_as_expected(dataset_dir, 'dataset_split', seq_to_split_dict)
     
     # Loop through each folder in the dataset directory
     current_dataset_dir  = os.listdir(dataset_dir)
@@ -190,12 +219,12 @@ def dataset_split_to_standard_mmdetection_form(dataset_dir, seq_to_split_dict):
         if os.path.isdir(split_folder_path):
             os.makedirs(os.path.join(split_folder_path, 'img_dir'), exist_ok=True)
             os.makedirs(os.path.join(split_folder_path, 'ann_dir'), exist_ok=True)
-            os.makedirs(os.path.join(split_folder_path, 'ann_vis_dir'), exist_ok=True)
+            # os.makedirs(os.path.join(split_folder_path, 'ann_vis_dir'), exist_ok=True)
             
             
             target_img_dir_path = os.path.join(split_folder_path, 'img_dir')
             target_ann_dir_path = os.path.join(split_folder_path, 'ann_dir')
-            target_ann_vis_dir_path = os.path.join(split_folder_path, 'ann_vis_dir')
+            # target_ann_vis_dir_path = os.path.join(split_folder_path, 'ann_vis_dir')
             
             # for each sequence in the split folders get the seq folders
             for seq_folder in os.listdir(split_folder_path):
@@ -203,7 +232,7 @@ def dataset_split_to_standard_mmdetection_form(dataset_dir, seq_to_split_dict):
                 if os.path.isdir(split_folder_path) and seq_folder not in ['img_dir', 'ann_dir', 'ann_vis_dir']:
                     source_img_dir_path = os.path.join(seq_folder_path, 'img_dir')
                     source_ann_dir_path = os.path.join(seq_folder_path, 'ann_dir')
-                    source_ann_vis_dir_path = os.path.join(seq_folder_path, 'ann_vis_dir')
+                    # source_ann_vis_dir_path = os.path.join(seq_folder_path, 'ann_vis_dir')
                                    
                     if os.path.exists(source_img_dir_path):
                         for img_file in os.listdir(source_img_dir_path):
@@ -216,10 +245,10 @@ def dataset_split_to_standard_mmdetection_form(dataset_dir, seq_to_split_dict):
                             shutil.move(os.path.join(source_ann_dir_path, ann_file),
                                         os.path.join(target_ann_dir_path, ann_file))
                     
-                    if os.path.exists(source_ann_vis_dir_path):
-                        for img_file in os.listdir(source_ann_vis_dir_path):
-                            shutil.move(os.path.join(source_ann_vis_dir_path, img_file),
-                                        os.path.join(target_ann_vis_dir_path, img_file))        
+                    # if os.path.exists(source_ann_vis_dir_path):
+                    #     for img_file in os.listdir(source_ann_vis_dir_path):
+                    #         shutil.move(os.path.join(source_ann_vis_dir_path, img_file),
+                    #                     os.path.join(target_ann_vis_dir_path, img_file))        
     
     #remove seq_folders
     for split_folder in current_dataset_dir:
@@ -230,7 +259,7 @@ def dataset_split_to_standard_mmdetection_form(dataset_dir, seq_to_split_dict):
                 if os.path.isdir(seq_folder_path) and seq_folder not in ['img_dir', 'ann_dir', 'ann_vis_dir']:
                     os.rmdir(join(seq_folder_path,  'img_dir'))
                     os.rmdir(join(seq_folder_path,  'ann_dir')) 
-                    os.rmdir(join(seq_folder_path,  'ann_vis_dir')) 
+                    # os.rmdir(join(seq_folder_path,  'ann_vis_dir')) 
                     os.rmdir(join(seq_folder_path))                 
 
     print("Files have been successfully moved.")
@@ -239,23 +268,25 @@ def standard_mmdetection_form_to_dataset_seqs(dataset_dir, seq_to_split_dict):
     ##Check structure
     check_if_current_directory_structure_is_as_expected(dataset_dir, 'standard_mmdetection_form', seq_to_split_dict) 
     
-    sparse_or_full_dict = generate_sparse_or_full_dict(seq_to_split_dict)
+    # sparse_or_full_dict = generate_sparse_or_full_dict(seq_to_split_dict)
     split_folders = os.listdir(dataset_dir)
     for split in split_folders:
         split_dir = join(dataset_dir, split)
         if os.path.isdir(split_dir):
             split_img_dir = join(split_dir, 'img_dir')
             split_ann_dir = join(split_dir, 'ann_dir')
-            split_ann_vis_dir = join(split_dir, 'ann_vis_dir')
+            # split_ann_vis_dir = join(split_dir, 'ann_vis_dir')
 
             # Process image files
-            move_files_to_seq_folder(dataset_dir, split_img_dir, 'img', sparse_or_full_dict)
+            # move_files_to_seq_folder(dataset_dir, split_img_dir, 'img', seq_to_split_dict)
+            move_files_to_seq_folder_not_worrying_about_sparse_or_full(dataset_dir, split_img_dir, 'img')
 
             # Process annotation files
-            move_files_to_seq_folder(dataset_dir, split_ann_dir, 'ann', sparse_or_full_dict)
+            move_files_to_seq_folder_not_worrying_about_sparse_or_full(dataset_dir, split_ann_dir, 'ann')
+            # move_files_to_seq_folder(dataset_dir, split_ann_dir, 'ann', seq_to_split_dict)
             
             # Process image files
-            move_files_to_seq_folder(dataset_dir, split_ann_vis_dir, 'ann_vis_dir', sparse_or_full_dict)
+            # move_files_to_seq_folder(dataset_dir, split_ann_vis_dir, 'ann_vis_dir', sparse_or_full_dict)
             
             
     

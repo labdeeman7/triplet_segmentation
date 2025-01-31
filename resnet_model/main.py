@@ -15,6 +15,7 @@ from utils.general.dataset_variables import TripletSegmentationVariables
 from resnet_model.train_test_predict_loop_singletask import train_model_singletask, test_model_singletask, predict_with_model_singletask
 from resnet_model.train_test_predict_loop_multitask import train_model_multitask, test_model_multitask, predict_with_model_multitask
 from resnet_model.checkpoint_utils import load_checkpoint, load_checkpoint_from_latest
+from torch.utils.data import WeightedRandomSampler
 
 def main():
     # Argument parser
@@ -35,12 +36,30 @@ def main():
     # Dynamic configuration import
     config = importlib.import_module(args.config)
     
+    # get some metadata
+    task_name = getattr(config, 'task_name', None)
+     
+    num_instruments = TripletSegmentationVariables.num_instuments
+    num_verbs = TripletSegmentationVariables.num_verbs
+    num_targets = TripletSegmentationVariables.num_targets
+    num_verbtargets = TripletSegmentationVariables.num_verbtargets
+    num_triplets = TripletSegmentationVariables.num_verbtargets
+    
+   
+    
+    instrument_dict = TripletSegmentationVariables.categories['instrument']
+    verb_dict =  TripletSegmentationVariables.categories['verb']
+    target_dict = TripletSegmentationVariables.categories['target']
+    verbtarget_dict = TripletSegmentationVariables.categories['verbtarget']
+    triplet_dict = TripletSegmentationVariables.categories['triplet']
+    
     # Dynamic model import
     model_class = getattr(importlib.import_module("models"), config.model_name)
     # print(model_class)
 
     # Define the transformation
-    transform = CustomTransform(image_size=config.image_size)
+    transform = CustomTransform(image_size=config.image_size,
+                                model_input_size=config.model_input_size)
     
     if config.architecture == 'singletask':
         _SurgicalDataset = SurgicalSingletaskDataset
@@ -62,23 +81,43 @@ def main():
     train_dataset = _SurgicalDataset(config, config.train_image_dir, config.train_ann_dir, transform, train_mode=True)
     val_dataset = _SurgicalDataset(config, config.val_image_dir, config.val_ann_dir, transform, train_mode=True)
 
-    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=True)
-
     if config.verb_and_target_gt_present_for_test:
         test_dataset = _SurgicalDataset(config, config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
     else:
         test_dataset = PredictionDataset(config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
 
+    # data loader with weighted sampling.
+    total_train_samples  =  sum(config.task_class_frequencies.values())
+    class_weights = {cls: (total_train_samples / freq) ** config.dataset_weight_scaling_factor for cls, freq in config.task_class_frequencies.items()}
+
+    if task_name == 'verb':
+        num_task_class = num_verbs
+        dataset_labels = list(verb_dict.values())
+        dataset_sampling_weights = [class_weights[label] for label in dataset_labels]
+    elif task_name == 'target':
+        num_task_class = num_targets
+        dataset_labels = list(target_dict.values())
+        dataset_sampling_weights = [class_weights[label] for label in dataset_labels]
+    elif task_name == 'verbtarget':
+        num_task_class = num_verbtargets
+        dataset_labels = list(verbtarget_dict.values())
+        dataset_sampling_weights = [class_weights[label] for label in dataset_labels]
+    elif task_name == 'triplet':
+        num_task_class = num_triplets 
+        dataset_labels = list(triplet_dict.values())   
+        dataset_sampling_weights = [class_weights[label] for label in dataset_labels]    
+    else:
+        raise ValueError("We currently only accept 'verb', 'target', or 'verbtarget'.")
+    
+    # Create a WeightedRandomSampler
+    sampler = WeightedRandomSampler(weights=dataset_sampling_weights, num_samples=len(dataset_labels), replacement=True)
+
+
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, sampler=sampler, shuffle=False)
+    val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False)
 
-    # Initialize Model, Loss, Optimizer
-    num_instruments = TripletSegmentationVariables.num_instuments
-    num_verbs = TripletSegmentationVariables.num_verbs
-    num_targets = TripletSegmentationVariables.num_targets
-    num_verbtargets = TripletSegmentationVariables.num_verbtargets
-    task_name = getattr(config, 'task_name', None)
-
+    # Initialize Model, Loss, Optimizer  
     if task_name == 'verb':
         num_task_class = num_verbs
     elif task_name == 'target':

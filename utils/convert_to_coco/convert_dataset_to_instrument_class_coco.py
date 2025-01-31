@@ -214,7 +214,8 @@ def get_list_of_contour_dicts_for_all_instances_in_img_from_json(json_dict: dict
         list: list of dict 
     """ 
     
-    INSTRUMENT_ID_TO_CLASS_DICT = TripletSegmentationVariables.categories['instrument']
+    # INSTRUMENT_ID_TO_CLASS_DICT = TripletSegmentationVariables.categories['instrument']
+    INSTRUMENT_ID_TO_CLASS_DICT = TripletSegmentationVariables.categories['instrument_direct_pred']
     INSTRUMENT_CLASS_TO_ID_DICT = {instrument_class: instrument_id for instrument_id, instrument_class in INSTRUMENT_ID_TO_CLASS_DICT.items()}
     
     refactored_json_dict = {}
@@ -343,7 +344,8 @@ def annotations_to_coco(dataset_path: str,
     """    
     import os, json
     
-    instrument_id_to_instrument_class_dict = TripletSegmentationVariables.categories['instrument']
+    # instrument_id_to_instrument_class_dict = TripletSegmentationVariables.categories['instrument']
+    instrument_id_to_instrument_class_dict = TripletSegmentationVariables.categories['instrument_direct_pred']
     coco_annotation = initalize_coco_annotation(instrument_id_to_instrument_class_dict)
     
     img_list = sorted(os.listdir(os.path.join(dataset_path, 'img_dir')))
