@@ -15,7 +15,9 @@ from utils.general.dataset_variables import TripletSegmentationVariables
 from resnet_model.train_test_predict_loop_singletask import train_model_singletask, test_model_singletask, predict_with_model_singletask
 from resnet_model.train_test_predict_loop_multitask import train_model_multitask, test_model_multitask, predict_with_model_multitask
 from resnet_model.checkpoint_utils import load_checkpoint, load_checkpoint_from_latest
+from resnet_model.model_utils import get_dataset_label_ids
 from torch.utils.data import WeightedRandomSampler
+
 
 def main():
     # Argument parser
@@ -43,8 +45,7 @@ def main():
     num_verbs = TripletSegmentationVariables.num_verbs
     num_targets = TripletSegmentationVariables.num_targets
     num_verbtargets = TripletSegmentationVariables.num_verbtargets
-    num_triplets = TripletSegmentationVariables.num_verbtargets
-    
+    num_triplets = TripletSegmentationVariables.num_verbtargets    
    
     
     instrument_dict = TripletSegmentationVariables.categories['instrument']
@@ -63,14 +64,12 @@ def main():
     
     if config.architecture == 'singletask':
         _SurgicalDataset = SurgicalSingletaskDataset
-        _loss_fn = nn.CrossEntropyLoss()
         _train_model = train_model_singletask
         _test_model = test_model_singletask
         _predict_with_model = predict_with_model_singletask
         
     elif  config.architecture == 'multitask':   
         _SurgicalDataset = SurgicalMultitaskDataset
-        _loss_fn = MultiTaskLoss()
         _train_model = train_model_multitask
         _test_model = test_model_multitask
         _predict_with_model = predict_with_model_multitask
@@ -78,7 +77,7 @@ def main():
         raise ValueError("we currently only accept 'singletask', 'multitask'")      
 
     # Datasets and DataLoaders
-    train_dataset = _SurgicalDataset(config, config.train_image_dir, config.train_ann_dir, transform, train_mode=True)
+    train_dataset = _SurgicalDataset(config, config.train_image_dir, config.train_ann_dir, transform, train_mode=True)    
     val_dataset = _SurgicalDataset(config, config.val_image_dir, config.val_ann_dir, transform, train_mode=True)
 
     if config.verb_and_target_gt_present_for_test:
@@ -86,32 +85,59 @@ def main():
     else:
         test_dataset = PredictionDataset(config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
 
-    # data loader with weighted sampling.
-    total_train_samples  =  sum(config.task_class_frequencies.values())
-    class_weights = {cls: (total_train_samples / freq) ** config.dataset_weight_scaling_factor for cls, freq in config.task_class_frequencies.items()}
+    # data loader with weighted sampling. Use frequency clamping for the litle values.
+    min_freq = 1
+    class_weights = {cls: (1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor )  for cls, freq in config.task_class_frequencies.items()}     
+    dataset_label_ids = get_dataset_label_ids(config, _SurgicalDataset)   
 
     if task_name == 'verb':
         num_task_class = num_verbs
-        dataset_labels = list(verb_dict.values())
-        dataset_sampling_weights = [class_weights[label] for label in dataset_labels]
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in verb_dict.items()} # for loss weights              
+        dataset_label_names = [verb_dict[str(dataset_label_id+1)] for dataset_label_id in dataset_label_ids  ]
     elif task_name == 'target':
         num_task_class = num_targets
-        dataset_labels = list(target_dict.values())
-        dataset_sampling_weights = [class_weights[label] for label in dataset_labels]
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in target_dict.items()} # for loss weights          
+        dataset_label_names = [target_dict[str(dataset_label_id+1)] for dataset_label_id in dataset_label_ids  ]
     elif task_name == 'verbtarget':
         num_task_class = num_verbtargets
-        dataset_labels = list(verbtarget_dict.values())
-        dataset_sampling_weights = [class_weights[label] for label in dataset_labels]
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()} # for loss weights         
+        dataset_label_names = [verbtarget_dict[str(dataset_label_id+1)] for dataset_label_id in dataset_label_ids  ]
+    elif task_name == 'multitask_verb_and_target':
+        num_task_class = num_verbtargets
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()} # for loss weights           
+        dataset_label_names = []
+        for dataset_verb_id, dataset_target_id in dataset_label_ids: 
+            verb_name = verb_dict[str(dataset_verb_id)]
+            target_name = verb_dict[str(dataset_target_id)]
+            dataset_label_names.append(f'{verb_name},{target_name}')                           
     elif task_name == 'triplet':
         num_task_class = num_triplets 
-        dataset_labels = list(triplet_dict.values())   
-        dataset_sampling_weights = [class_weights[label] for label in dataset_labels]    
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()} # for loss weights          
+        dataset_label_names = [triplet_dict[str(dataset_label_id+1)] for dataset_label_id in dataset_label_ids  ]
     else:
-        raise ValueError("We currently only accept 'verb', 'target', or 'verbtarget'.")
+        raise ValueError("We currently only accept 'verb', 'target', 'verbtarget', 'verbtarget_multitask' or 'triplet'")
     
-    # Create a WeightedRandomSampler
-    sampler = WeightedRandomSampler(weights=dataset_sampling_weights, num_samples=len(dataset_labels), replacement=True)
-
+    # Create a WeightedRandomSampler    
+    dataset_sampling_weights = [class_weights[label_name] for label_name in dataset_label_names] 
+    sampler = WeightedRandomSampler(weights=dataset_sampling_weights, num_samples=len(dataset_label_ids), replacement=True)
+    
+    # weighted cross entropy 
+    min_freq = 1
+    loss_class_weights = {cls: (1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor )  for cls, freq in config.task_class_frequencies.items()}    
+    total_weight = sum(loss_class_weights.values())
+    loss_normalized_weights = {cls: weight / total_weight for cls, weight in loss_class_weights.items()}    
+    loss_weights_tensor = torch.tensor([loss_normalized_weights[cls] for cls in 
+                                        sorted(class_to_idx_zero_index, 
+                                            key=class_to_idx_zero_index.get)],
+                                       dtype=torch.float, 
+                                       device='cuda') 
+    print(f'loss_weights_tensor {loss_weights_tensor}')    
+    if config.architecture == 'singletask':          
+        _loss_fn = nn.CrossEntropyLoss(weight=loss_weights_tensor)        
+    elif  config.architecture == 'multitask':           
+        _loss_fn = MultiTaskLoss(weight=loss_weights_tensor)
+    else:
+        raise ValueError("we currently only accept 'singletask', 'multitask'")      
 
     train_loader = DataLoader(train_dataset, batch_size=config.batch_size, sampler=sampler, shuffle=False)
     val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
@@ -124,8 +150,12 @@ def main():
         num_task_class = num_targets
     elif task_name == 'verbtarget':
         num_task_class = num_verbtargets
+    elif task_name == 'verbtarget':
+        num_task_class = num_verbtargets  
+    elif task_name == 'multitask_verb_and_target':  
+        pass   
     elif not task_name:
-        pass  # Do nothing if task_name is defined but not recognized
+        raise ValueError('please give task_name')
     else:
         raise ValueError("We currently only accept 'verb', 'target', or 'verbtarget'.")
     
@@ -175,17 +205,7 @@ def main():
             best_val_accuracy=best_val_accuracy
         )
         
-        # save from latest
-        _test_model(
-            config=config,
-            model=model,
-            dataloader=test_loader,
-            device='cuda',
-            save_results_path=config.save_latest_results_path,
-            verbose=True,
-        )
-        
-        #load best model checkpoint
+        #load best model checkpoint and test.
         best_model_path = join(config.work_dir, 'best_model.pth')
         start_epoch, best_val_accuracy = load_checkpoint(best_model_path, model, optimizer)
         

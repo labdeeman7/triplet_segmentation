@@ -12,8 +12,7 @@ experiment_name = os.path.splitext(os.path.basename(__file__))[0]
 
 # Model name
 model_name = 'SingleTaskResNetFPN'
-task_name = 'target'
-
+task_name = 'verb'
 
 if model_name in ['SingleTaskResNetFPN', 'SingleTaskResNetFPNWithDecoder']:
     architecture = 'singletask'
@@ -33,6 +32,7 @@ else:
 
 if task_name == 'target':
     label_id_json_file_path = join(dataset_path, 'label_ids/label_ids_target_train_v3.json')
+  
 
 verb_and_target_gt_present_for_test = False
 
@@ -60,21 +60,17 @@ model_input_size = (448, 800)
 
 # class frequencies weights from train dataset. 
 task_class_frequencies = {
-    "gallbladder": 37468,
-    "cystic_duct": 6758,
-    "liver": 6272, 
-    "omentum": 3641,   
-    "null_target": 3462,    
-    "cystic_artery": 2887,
-    "cystic_plate": 1857,
-    "fluid": 1215,
-    "specimen_bag": 1088,
-    "peritoneum": 554,
-    "abdominal_wall_cavity": 307,
-    "blood_vessel": 234,
-    "gut": 211,
-    "adhesion": 162,
-    "cystic_pedicle": 145,
+    "dissect": 26580,
+    "retract": 24730,
+    "grasp": 4737, 
+    "null_verb": 3462,   
+    "coagulate": 2560,    
+    "clip": 1703,
+    "aspirate": 1215,
+    "cut": 1016,
+    "irrigate": 247,
+    "pack": 11
 }
+
 
 dataset_weight_scaling_factor = 0.7

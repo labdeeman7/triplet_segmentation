@@ -4,7 +4,8 @@ import os
 import wandb
 import types
 from resnet_model.checkpoint_utils import save_checkpoint
-
+import numpy as np
+from collections import defaultdict
 
 def train_model_singletask(config,
                 model, 
@@ -31,6 +32,7 @@ def train_model_singletask(config,
     task_name = config.task_name  
     
     model = model.to(device)
+    loss_fn = loss_fn.to(device)
 
     # Create the save directory if it doesn't exist
     os.makedirs(config.work_dir, exist_ok=True)    
@@ -41,20 +43,24 @@ def train_model_singletask(config,
         running_loss = 0.0
         total_task_correct = 0
         total_samples = 0
+        
+        # For mean accuracy
+        class_correct = defaultdict(int)
+        class_counts = defaultdict(int)
 
-        for img, mask, instrument_id, instance_id, task_gt_id, mask_name in train_loader:
-            img = img.to(device)
-            mask = mask.to(device)
-            instrument_id = instrument_id.to(device)
-            task_gt_id = task_gt_id.to(device)
+        for imgs, masks, instrument_ids, instance_ids, task_gt_ids, mask_names in train_loader:
+            imgs = imgs.to(device)
+            masks = masks.to(device)
+            instrument_ids = instrument_ids.to(device)
+            task_gt_ids = task_gt_ids.to(device)
             
             optimizer.zero_grad()
 
             # Forward pass
-            task_preds = model(img, mask, instrument_id)
+            task_preds = model(imgs, masks, instrument_ids)
 
             # Compute loss
-            loss = loss_fn(task_preds, task_gt_id)   
+            loss = loss_fn(task_preds, task_gt_ids)   
 
             # Backward pass and optimization
             loss.backward()
@@ -65,16 +71,43 @@ def train_model_singletask(config,
             task_preds = torch.argmax(task_preds, dim=1)
             
             # Compute accuracy
-            total_task_correct += (task_preds == task_gt_id).sum().item()
-            total_samples += img.size(0)
+            total_task_correct += (task_preds == task_gt_ids).sum().item()
+            total_samples += imgs.size(0)
+            
+            # Compute per-class accuracy
+            for cls in torch.unique(task_gt_ids):
+                cls = cls.item()
+                class_correct[cls] += ((task_preds == cls) & (task_gt_ids == cls)).sum().item()
+                class_counts[cls] += (task_gt_ids == cls).sum().item()
+            
+            # debug
+            from collections import Counter
+            batch_counter  = Counter()
+            task_gt_id_np = task_gt_ids.cpu().numpy() if isinstance(task_gt_ids, torch.Tensor) else task_gt_ids  # Handle tensor conversion
+            task_gt_id_np = task_gt_id_np.tolist()  # Convert to list if it's still an array
+            batch_counter.update(task_gt_id_np)
+            
+            for cls, count in batch_counter.items():
+                print(f"Class {cls}: {count}")
+            
+            print()
+            break
+        # Compute per-class accuracy & mean accuracy
+        class_accuracies = {
+            cls: class_correct[cls] / class_counts[cls] if class_counts[cls] > 0 else 0
+            for cls in class_counts
+        }
+        mean_accuracy = np.mean(list(class_accuracies.values()))
         
-        # Calculate metrics
+        
+        # Calculate accuracy
         train_loss = running_loss / len(train_loader)
         task_accuracy = total_task_correct / total_samples 
                         
         if verbose:
             print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {train_loss:.4f}", flush=True)
             print(f"Train {task_name} Accuracy: {task_accuracy:.2f}", flush=True)
+            print(f"Train {task_name} mean Accuracy: {mean_accuracy:.2f}", flush=True)
         
         
         # Log training metrics to WandB
@@ -82,20 +115,26 @@ def train_model_singletask(config,
             "epoch": epoch + 1,
             "train_loss": train_loss,
             f"train_{task_name}_accuracy": task_accuracy,
+            f"train_{task_name}_mean_accuracy": mean_accuracy,
         })    
         
             
 
         # Validate the model
         print('Validation')
-        val_task_accuracy = test_model_with_evaluation_singletask(config,
+        val_task_accuracy, val_mean_accuracy = test_model_with_evaluation_singletask(config,
                                                 model, 
                                                 val_loader, 
                                                 device=device, 
                                                 verbose=True)
+        
+        if verbose:
+            print(f"Val {task_name} Accuracy: {val_task_accuracy:.2f}", flush=True)
+            print(f"Val {task_name} mean Accuracy: {val_mean_accuracy:.2f}", flush=True)
 
         wandb.log({
             f"val_{task_name}_accuracy": val_task_accuracy,
+            f"val_{task_name}_mean_accuracy": val_mean_accuracy,
         })
         
         
@@ -152,31 +191,48 @@ def test_model_with_evaluation_singletask(config,
     model.eval()
     total_task_correct = 0
     total_samples = 0
+    class_correct = defaultdict(int)
+    class_counts = defaultdict(int)
     results = {}
 
     with torch.no_grad():
-        for img, mask, instrument_id, instance_id, task_gt_id, mask_name in dataloader:
-            img = img.to(device)
-            mask = mask.to(device)
-            instrument_id = instrument_id.to(device)
-            task_gt_id = task_gt_id.to(device)
+        for imgs, masks, instrument_ids, instance_ids, task_gt_ids, mask_names in dataloader:
+            imgs = imgs.to(device)
+            masks = masks.to(device)
+            instrument_ids = instrument_ids.to(device)
+            task_gt_ids = task_gt_ids.to(device)
 
-            task_preds = model(img, mask, instrument_id)
+            task_preds = model(imgs, masks, instrument_ids)
 
             # Get predicted classes
             task_preds = torch.argmax(task_preds, dim=1)
 
             # Compute accuracy
-            total_task_correct += (task_preds == task_gt_id).sum().item()
-            total_samples += img.size(0)
+            total_task_correct += (task_preds == task_gt_ids).sum().item()
+            total_samples += imgs.size(0)
+            
+            # Compute per-class accuracy
+            for cls in torch.unique(task_gt_ids):
+                cls = cls.item()
+                class_correct[cls] += ((task_preds == cls) & (task_gt_ids == cls)).sum().item()
+                class_counts[cls] += (task_gt_ids == cls).sum().item()
 
             # Store results in dictionary
-            for i in range(len(mask_name)):
-                results[mask_name[i]] = {
+            for i in range(len(mask_names)):
+                results[mask_names[i]] = {
                     f"{task_name}": task_preds[i].item(),
-                    "instance_id": instance_id[i]
+                    "instance_id": instance_ids[i]
                 }
-
+            
+            #remove
+            break     
+    # Compute per-class accuracy & mean accuracy
+    class_accuracies = {
+        cls: class_correct[cls] / class_counts[cls] if class_counts[cls] > 0 else 0
+        for cls in class_counts
+    }
+    mean_accuracy = np.mean(list(class_accuracies.values())) if class_accuracies else 0
+    
     # Calculate accuracy
     task_accuracy = total_task_correct / total_samples
 
@@ -187,7 +243,7 @@ def test_model_with_evaluation_singletask(config,
         with open(save_results_path, 'w') as f:
             json.dump(results, f, indent=4)
 
-    return task_accuracy  #Return accuracy
+    return task_accuracy, mean_accuracy  #Return accuracy
 
 
 # Predict loop
@@ -229,6 +285,8 @@ def predict_with_model_singletask(config,
                     f"{task_name}": task_preds[i].item(),
                     "instance_id": instance_id[i]
                 }
+            
+               
     
     # Save predictions to JSON
     with open(save_results_path, 'w') as f:
