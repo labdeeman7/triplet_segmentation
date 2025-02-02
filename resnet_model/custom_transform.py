@@ -47,16 +47,16 @@ class CustomTransform:
                 img = F.adjust_saturation(img, random.uniform(0.8, 1.2))  # Saturation change
 
             # Apply Gaussian blur
-            if random.random() > 0.5:
-                img = img.filter(ImageFilter.GaussianBlur(radius=random.uniform(0.5, 1.5)))
+            # if random.random() > 0.5:
+            #     img = img.filter(ImageFilter.GaussianBlur(radius=random.uniform(0.5, 1.5)))
             
             # apply random noise    
-            if random.random() > 0.5:
-                img = self.add_noise(img)    
+            # if random.random() > 0.5:
+            #     img = self.add_noise(img)    
             
-            # add specular reflection
-            if random.random() > 0.5:
-                img = self.add_specular_reflections(img) 
+            # # add specular reflection
+            # if random.random() > 0.5:
+            #     img = self.add_specular_reflections(img) 
                        
         # Resize image and mask
         img = F.resize(img, self.model_input_size)

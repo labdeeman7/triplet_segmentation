@@ -2,7 +2,7 @@ from os.path import join
 import os
 
 # Hyperparameters
-batch_size = 32
+batch_size = 48
 num_epochs = 20
 learning_rate = 0.0005
 
@@ -33,6 +33,10 @@ else:
 
 if task_name == 'target':
     label_id_json_file_path = join(dataset_path, 'label_ids/label_ids_target_train_v3.json')
+elif task_name == 'verb':
+    label_id_json_file_path = join(dataset_path, 'label_ids/label_ids_verb_train_v3.json')
+elif task_name == 'verbtarget':
+    label_id_json_file_path = join(dataset_path, 'label_ids/label_ids_verbtarget_train_v3.json')            
 
 verb_and_target_gt_present_for_test = False
 
@@ -77,4 +81,4 @@ task_class_frequencies = {
     "cystic_pedicle": 145,
 }
 
-dataset_weight_scaling_factor = 0.7
+dataset_weight_scaling_factor = 0.5

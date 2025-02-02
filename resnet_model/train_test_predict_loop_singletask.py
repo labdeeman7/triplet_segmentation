@@ -80,18 +80,7 @@ def train_model_singletask(config,
                 class_correct[cls] += ((task_preds == cls) & (task_gt_ids == cls)).sum().item()
                 class_counts[cls] += (task_gt_ids == cls).sum().item()
             
-            # debug
-            from collections import Counter
-            batch_counter  = Counter()
-            task_gt_id_np = task_gt_ids.cpu().numpy() if isinstance(task_gt_ids, torch.Tensor) else task_gt_ids  # Handle tensor conversion
-            task_gt_id_np = task_gt_id_np.tolist()  # Convert to list if it's still an array
-            batch_counter.update(task_gt_id_np)
             
-            for cls, count in batch_counter.items():
-                print(f"Class {cls}: {count}")
-            
-            print()
-            break
         # Compute per-class accuracy & mean accuracy
         class_accuracies = {
             cls: class_correct[cls] / class_counts[cls] if class_counts[cls] > 0 else 0
@@ -224,8 +213,7 @@ def test_model_with_evaluation_singletask(config,
                     "instance_id": instance_ids[i]
                 }
             
-            #remove
-            break     
+              
     # Compute per-class accuracy & mean accuracy
     class_accuracies = {
         cls: class_correct[cls] / class_counts[cls] if class_counts[cls] > 0 else 0
