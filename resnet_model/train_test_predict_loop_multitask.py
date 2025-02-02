@@ -4,6 +4,8 @@ import os
 import wandb
 import types
 from resnet_model.checkpoint_utils import save_checkpoint
+from collections import defaultdict
+import numpy as np
 
 def train_model_multitask(config,
                 model, 
@@ -39,6 +41,12 @@ def train_model_multitask(config,
         total_verb_correct = 0
         total_target_correct = 0
         total_samples = 0
+        
+        # For mean accuracy
+        class_verb_correct = defaultdict(int)
+        class_verb_counts = defaultdict(int)
+        class_target_correct = defaultdict(int)
+        class_target_counts = defaultdict(int)
 
         for img, mask, instrument_id, instance_id, verb_id, target_id, mask_name in train_loader:
             img = img.to(device)
@@ -68,8 +76,38 @@ def train_model_multitask(config,
             total_verb_correct += (verb_preds == verb_id).sum().item()
             total_target_correct += (target_preds == target_id).sum().item()
             total_samples += img.size(0)
+            
+            # Compute per-class accuracy
+            # verb
+            for cls in torch.unique(verb_id):
+                cls = cls.item()
+                class_verb_correct[cls] += ((verb_preds == cls) & (verb_id == cls)).sum().item()
+                class_verb_counts[cls] += (verb_id == cls).sum().item()
+            
+            
+            for cls in torch.unique(target_id):
+                cls = cls.item()
+                class_target_correct[cls] += ((target_preds == cls) & (target_id == cls)).sum().item()
+                class_target_counts[cls] += (target_id == cls).sum().item()  
+            
+                  
+            
         
         # Calculate metrics
+        #Compute per-class accuracy & mean accuracy
+        verb_class_accuracies = {
+            cls: class_verb_correct[cls] / class_verb_counts[cls] if class_verb_counts[cls] > 0 else 0
+            for cls in class_verb_counts
+        }
+        mean_verb_accuracy = np.mean(list(verb_class_accuracies.values()))
+        
+        target_class_accuracies = {
+            cls: class_target_correct[cls] / class_target_counts[cls] if class_target_counts[cls] > 0 else 0
+            for cls in class_target_counts
+        }
+        mean_target_accuracy = np.mean(list(target_class_accuracies.values()))
+        
+        #Calculate accuracy
         train_loss = running_loss / len(train_loader)
         verb_accuracy = total_verb_correct / total_samples
         target_accuracy = total_target_correct / total_samples    
@@ -86,22 +124,34 @@ def train_model_multitask(config,
             "train_loss": train_loss,
             "train_verb_accuracy": verb_accuracy,
             "train_target_accuracy": target_accuracy,
+            "train_verb_mean_accuracy": mean_verb_accuracy,
+            "train_target_mean_accuracy": mean_target_accuracy,
         })    
         
             
 
         # Validate the model
         print('Validation')
-        val_verb_accuracy, val_target_accuracy = test_model_with_evaluation_multitask(config,
-                                                model, 
-                                                val_loader, 
-                                                device=device, 
-                                                verbose=True)
+        val_verb_accuracy, val_target_accuracy, val_mean_verb_accuracy, val_mean_target_accuracy   = test_model_with_evaluation_multitask(config,
+                                                                                                                                        model, 
+                                                                                                                                        val_loader, 
+                                                                                                                                        device=device, 
+                                                                                                                                        verbose=True)
 
         average_val_accuracy = (val_verb_accuracy + val_target_accuracy)
+        
+        if verbose:
+            print(f"Val Verb Accuracy: {val_verb_accuracy:.2f}", flush=True)
+            print(f"Val Verb mean Accuracy: {val_mean_verb_accuracy:.2f}", flush=True)
+            print(f"Val Target Accuracy: {val_target_accuracy:.2f}", flush=True)
+            print(f"Val Target mean Accuracy: {val_mean_target_accuracy:.2f}", flush=True)
+        
+        
         wandb.log({
             "val_verb_accuracy": val_verb_accuracy,
+            "val_verb_mean_accuracy": val_mean_verb_accuracy,
             "val_target_accuracy": val_target_accuracy,
+            "val_target_mean_accuracy": val_mean_target_accuracy,
             "average_val_accuracy": average_val_accuracy,
         })
         
@@ -157,6 +207,11 @@ def test_model_with_evaluation_multitask(config,
     total_verb_correct = 0
     total_target_correct = 0
     total_samples = 0
+    # For mean accuracy
+    class_verb_correct = defaultdict(int)
+    class_verb_counts = defaultdict(int)
+    class_target_correct = defaultdict(int)
+    class_target_counts = defaultdict(int)
     results = {}
 
     with torch.no_grad():
@@ -177,6 +232,19 @@ def test_model_with_evaluation_multitask(config,
             total_verb_correct += (verb_preds == verb_id).sum().item()
             total_target_correct += (target_preds == target_id).sum().item()
             total_samples += img.size(0)
+            
+            # Compute per-class accuracy
+            # verb
+            for cls in torch.unique(verb_id):
+                cls = cls.item()
+                class_verb_correct[cls] += ((verb_preds == cls) & (verb_id == cls)).sum().item()
+                class_verb_counts[cls] += (verb_id == cls).sum().item()
+            
+            
+            for cls in torch.unique(target_id):
+                cls = cls.item()
+                class_target_correct[cls] += ((target_preds == cls) & (target_id == cls)).sum().item()
+                class_target_counts[cls] += (target_id == cls).sum().item()   
 
             # Store results in dictionary
             for i in range(len(mask_name)):
@@ -186,6 +254,20 @@ def test_model_with_evaluation_multitask(config,
                     "instance_id": instance_id[i]
                 }
 
+    # Calculate metrics
+    #Compute per-class accuracy & mean accuracy
+    verb_class_accuracies = {
+        cls: class_verb_correct[cls] / class_verb_counts[cls] if class_verb_counts[cls] > 0 else 0
+        for cls in class_verb_counts
+    }
+    mean_verb_accuracy = np.mean(list(verb_class_accuracies.values()))
+    
+    target_class_accuracies = {
+        cls: class_target_correct[cls] / class_target_counts[cls] if class_target_counts[cls] > 0 else 0
+        for cls in class_target_counts
+    }
+    mean_target_accuracy = np.mean(list(target_class_accuracies.values()))
+    
     # Calculate accuracy
     verb_accuracy = total_verb_correct / total_samples
     target_accuracy = total_target_correct / total_samples
@@ -198,7 +280,7 @@ def test_model_with_evaluation_multitask(config,
         with open(save_results_path, 'w') as f:
             json.dump(results, f, indent=4)
 
-    return verb_accuracy, target_accuracy  #Return both accuracy
+    return verb_accuracy, target_accuracy, mean_verb_accuracy, mean_target_accuracy  #Return both accuracy
 
 # Predict loop
 def predict_with_model_multitask(config,

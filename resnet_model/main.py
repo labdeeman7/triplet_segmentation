@@ -102,40 +102,34 @@ def main():
         num_task_class = num_verbtargets
         class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()} # for loss weights         
         dataset_label_names = [verbtarget_dict[str(dataset_label_id+1)] for dataset_label_id in dataset_label_ids  ]
-    elif task_name == 'multitask_verb_and_target':
+    elif task_name == 'standard_multitask_verb_and_target': 
+        # We use the verb targets combined for the sampling of the standard multitask. This is because we are using a single sampler. 
+        # And the sampling is done per sample. So we do not care how we assign weights to samples.  
         num_task_class = num_verbtargets
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()} # for loss weights           
-        dataset_label_names = []
-        for dataset_verb_id, dataset_target_id in dataset_label_ids: 
-            verb_name = verb_dict[str(dataset_verb_id)]
-            target_name = verb_dict[str(dataset_target_id)]
-            dataset_label_names.append(f'{verb_name},{target_name}')                           
-    elif task_name == 'triplet':
-        num_task_class = num_triplets 
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()} # for loss weights          
-        dataset_label_names = [triplet_dict[str(dataset_label_id+1)] for dataset_label_id in dataset_label_ids  ]
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()} # for loss weights         
+        dataset_label_names = [verbtarget_dict[str(dataset_label_id+1)] for dataset_label_id in dataset_label_ids  ]          
     else:
         raise ValueError("We currently only accept 'verb', 'target', 'verbtarget', 'verbtarget_multitask' or 'triplet'")
     
     # Create a WeightedRandomSampler    
     dataset_sampling_weights = [class_weights[label_name] for label_name in dataset_label_names] 
-    sampler = WeightedRandomSampler(weights=dataset_sampling_weights, num_samples=len(dataset_label_ids), replacement=True)
+    sampler = WeightedRandomSampler(weights=dataset_sampling_weights, num_samples=len(dataset_label_ids), replacement=True) 
     
     # weighted cross entropy 
-    min_freq = 1
-    loss_class_weights = {cls: (1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor )  for cls, freq in config.task_class_frequencies.items()}    
-    total_weight = sum(loss_class_weights.values())
-    loss_normalized_weights = {cls: weight / total_weight for cls, weight in loss_class_weights.items()}    
-    loss_weights_tensor = torch.tensor([loss_normalized_weights[cls] for cls in 
-                                        sorted(class_to_idx_zero_index, 
-                                            key=class_to_idx_zero_index.get)],
-                                       dtype=torch.float, 
-                                       device='cuda') 
-    print(f'loss_weights_tensor {loss_weights_tensor}')    
-    if config.architecture == 'singletask':          
+    if config.architecture == 'singletask': 
+        min_freq = 1
+        loss_class_weights = {cls: (1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor )  for cls, freq in config.task_class_frequencies.items()}   
+        total_weight = sum(loss_class_weights.values())
+        loss_normalized_weights = {cls: weight / total_weight for cls, weight in loss_class_weights.items()}    
+        loss_weights_tensor = torch.tensor([loss_normalized_weights[cls] for cls in 
+                                            sorted(class_to_idx_zero_index, 
+                                                key=class_to_idx_zero_index.get)],
+                                        dtype=torch.float, 
+                                        device='cuda') 
+        print(f'loss_weights_tensor {loss_weights_tensor}')             
         _loss_fn = nn.CrossEntropyLoss(weight=loss_weights_tensor)        
-    elif  config.architecture == 'multitask':           
-        _loss_fn = MultiTaskLoss(weight=loss_weights_tensor)
+    elif  config.architecture == 'multitask':               
+        _loss_fn = MultiTaskLoss(config)
     else:
         raise ValueError("we currently only accept 'singletask', 'multitask'")      
 
@@ -152,7 +146,7 @@ def main():
         num_task_class = num_verbtargets
     elif task_name == 'verbtarget':
         num_task_class = num_verbtargets  
-    elif task_name == 'multitask_verb_and_target':  
+    elif task_name == 'standard_multitask_verb_and_target':  
         pass   
     elif not task_name:
         raise ValueError('please give task_name')

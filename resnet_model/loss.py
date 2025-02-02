@@ -1,20 +1,65 @@
+import sys
+sys.path.append('../')
+
 import torch.nn as nn
+import torch
 from model_utils import get_verbtarget_to_verb_and_target_matrix
+from utils.general.dataset_variables import TripletSegmentationVariables
 import numpy as np
+import pprint
+
+
+verb_dict =  TripletSegmentationVariables.categories['verb']
+target_dict = TripletSegmentationVariables.categories['target']
+verbtarget_dict = TripletSegmentationVariables.categories['verbtarget']
 
 class MultiTaskLoss(nn.Module):
-    def __init__(self, weight):
+    def __init__(self, config):
         super(MultiTaskLoss, self).__init__()
-        
-        if weight:
+        if hasattr(config, "task_class_frequencies"):
+            
+            #get frequency per class, this was not necessary. It is cool, but not necessary. Wasted hours. 
             verbtarget_to_verb_matrix, verbtarget_to_target_matrix = get_verbtarget_to_verb_and_target_matrix()
             
-            weights = weight.reshape(-1, 1) # Convert to Nx1 (should be 56x1) 
-            weights_verbs  = np.matmul(verbtarget_to_verb_matrix, weights)
-            weights_targets  = np.matmul(verbtarget_to_target_matrix, weights)
             
-            self.criterion_verb = nn.CrossEntropyLoss(weights_verbs)
-            self.criterion_target = nn.CrossEntropyLoss(weights_targets)
+            class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()}
+            frequency_arranged_by_index = [config.task_class_frequencies[cls] 
+                                           for cls in sorted(class_to_idx_zero_index, 
+                                                key=class_to_idx_zero_index.get)]
+            frequency_arranged_by_index = np.array(frequency_arranged_by_index,  dtype=float).reshape(-1, 1) # make 56x1
+            
+            
+            frequency_verbs =  np.matmul(verbtarget_to_verb_matrix,  frequency_arranged_by_index).reshape(-1)
+            frequency_targets = np.matmul(verbtarget_to_target_matrix,  frequency_arranged_by_index).reshape(-1)  
+            
+            # print('frequency_verbs', frequency_verbs)      
+            # print('frequency_verbs', frequency_verbs)          
+                        
+            min_freq = 1
+            loss_verb_class_weights = [(1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor)  
+                                       for freq in frequency_verbs] 
+            loss_target_class_weights = [(1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor)  
+                                         for freq in frequency_targets]  
+            total_weight_verb = sum(loss_verb_class_weights)
+            total_weight_target = sum(loss_target_class_weights)
+            
+            loss_verb_class_weights_normalized = [weight/total_weight_verb  for weight in loss_verb_class_weights] 
+            loss_target_class_weights_normalized = [weight/total_weight_target  for weight in loss_target_class_weights] 
+            
+            # print('loss_verb_class_weights_normalized')
+            # print(loss_verb_class_weights_normalized)
+            # print('loss_target_class_weights_normalized')
+            # print(loss_target_class_weights_normalized)
+            
+            loss_verb_class_weights_normalized = torch.tensor(loss_verb_class_weights_normalized,dtype=torch.float, device='cuda')
+            loss_target_class_weights_normalized = torch.tensor(loss_target_class_weights_normalized,dtype=torch.float, device='cuda')
+            
+            
+            self.criterion_verb = nn.CrossEntropyLoss(loss_verb_class_weights_normalized)
+            self.criterion_target = nn.CrossEntropyLoss(loss_target_class_weights_normalized)
+            
+            # raise ValueError('just stay')
+            
         else:
             self.criterion_verb = nn.CrossEntropyLoss()
             self.criterion_target = nn.CrossEntropyLoss()    

@@ -46,8 +46,8 @@ def get_verbtarget_to_verb_and_target_matrix():
     num_verbtargets = len(verbtargets)
 
     # Initialize a 10x56 matrix with zeros and 15x56 with zeros.
-    verbtarget_to_verb_matrix = np.zeros((num_verbs, num_verbtargets), dtype=np.int32)
-    verbtarget_to_target_matrix = np.zeros((num_targets, num_verbtargets), dtype=np.int32)
+    verbtarget_to_verb_matrix = np.zeros((num_verbs, num_verbtargets), dtype=float)
+    verbtarget_to_target_matrix = np.zeros((num_targets, num_verbtargets), dtype=float)
 
     # Populate the matrix
     for vt_idx, vt in verbtargets.items():
