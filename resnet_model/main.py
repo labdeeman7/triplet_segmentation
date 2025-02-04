@@ -9,14 +9,13 @@ import importlib
 import torch
 from torch.utils.data import DataLoader
 from resnet_model.dataset import SurgicalSingletaskDataset, PredictionDataset, SurgicalMultitaskDataset
-from loss import MultiTaskLoss
+from loss import MultiTaskLoss, MultiTaskLossThreeTasks
 from custom_transform import CustomTransform
 from utils.general.dataset_variables import TripletSegmentationVariables
 from resnet_model.train_test_predict_loop_singletask import train_model_singletask, test_model_singletask, predict_with_model_singletask
 from resnet_model.train_test_predict_loop_multitask import train_model_multitask, test_model_multitask, predict_with_model_multitask
 from resnet_model.checkpoint_utils import load_checkpoint, load_checkpoint_from_latest
 from resnet_model.model_utils import get_dataset_label_ids
-from torch.utils.data import WeightedRandomSampler
 
 
 def main():
@@ -85,42 +84,34 @@ def main():
     else:
         test_dataset = PredictionDataset(config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
 
-    # data loader with weighted sampling. Use frequency clamping for the litle values.
-    min_freq = 1
-    class_weights = {cls: (1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor )  for cls, freq in config.task_class_frequencies.items()}     
-    dataset_label_ids = get_dataset_label_ids(config, _SurgicalDataset)   
 
     if task_name == 'verb':
         num_task_class = num_verbs
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in verb_dict.items()} # for loss weights              
-        dataset_label_names = [verb_dict[str(dataset_label_id+1)] for dataset_label_id in dataset_label_ids  ]
+        print('class names', list(verb_dict.values())) 
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in verb_dict.items()} # for loss weights 
     elif task_name == 'target':
         num_task_class = num_targets
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in target_dict.items()} # for loss weights          
-        dataset_label_names = [target_dict[str(dataset_label_id+1)] for dataset_label_id in dataset_label_ids  ]
+        print('class names', list(target_dict.values())) 
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in target_dict.items()} # for loss weights     
     elif task_name == 'verbtarget':
         num_task_class = num_verbtargets
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()} # for loss weights         
-        dataset_label_names = [verbtarget_dict[str(dataset_label_id+1)] for dataset_label_id in dataset_label_ids  ]
-    elif task_name == 'standard_multitask_verb_and_target': 
-        # We use the verb targets combined for the sampling of the standard multitask. This is because we are using a single sampler. 
-        # And the sampling is done per sample. So we do not care how we assign weights to samples.  
+        print('class names', list(verbtarget_dict.values())) 
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()} # for loss weights      
+    elif task_name == 'standard_multitask_verb_and_target':   
         num_task_class = num_verbtargets
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()} # for loss weights         
-        dataset_label_names = [verbtarget_dict[str(dataset_label_id+1)] for dataset_label_id in dataset_label_ids  ]          
+        print('class names', list(verbtarget_dict.values())) 
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()} # for loss weights          
     else:
         raise ValueError("We currently only accept 'verb', 'target', 'verbtarget', 'verbtarget_multitask' or 'triplet'")
     
-    # Create a WeightedRandomSampler    
-    dataset_sampling_weights = [class_weights[label_name] for label_name in dataset_label_names] 
-    sampler = WeightedRandomSampler(weights=dataset_sampling_weights, num_samples=len(dataset_label_ids), replacement=True) 
-    
     # weighted cross entropy 
     if config.architecture == 'singletask': 
-        min_freq = 1
-        loss_class_weights = {cls: (1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor )  for cls, freq in config.task_class_frequencies.items()}   
+        loss_class_weights = {cls: (1 / (freq ** config.dataset_weight_scaling_factor)) if freq > 0 else 0  
+                      for cls, freq in config.task_class_frequencies.items()}   
+        #Normalize and ensure it sums to 1. 
         total_weight = sum(loss_class_weights.values())
-        loss_normalized_weights = {cls: weight / total_weight for cls, weight in loss_class_weights.items()}    
+        loss_normalized_weights = {cls: weight / total_weight for cls, weight in loss_class_weights.items()}  
+        # arange and convert to tensor.   
         loss_weights_tensor = torch.tensor([loss_normalized_weights[cls] for cls in 
                                             sorted(class_to_idx_zero_index, 
                                                 key=class_to_idx_zero_index.get)],
@@ -130,10 +121,12 @@ def main():
         _loss_fn = nn.CrossEntropyLoss(weight=loss_weights_tensor)        
     elif  config.architecture == 'multitask':               
         _loss_fn = MultiTaskLoss(config)
+    elif  config.architecture == 'multitaskthreetasks':               
+        _loss_fn = MultiTaskLossThreeTasks(config)    
     else:
         raise ValueError("we currently only accept 'singletask', 'multitask'")      
 
-    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, sampler=sampler, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False)
 
@@ -144,12 +137,8 @@ def main():
         num_task_class = num_targets
     elif task_name == 'verbtarget':
         num_task_class = num_verbtargets
-    elif task_name == 'verbtarget':
+    elif task_name == 'standard_multitask_verb_and_target':
         num_task_class = num_verbtargets  
-    elif task_name == 'standard_multitask_verb_and_target':  
-        pass   
-    elif not task_name:
-        raise ValueError('please give task_name')
     else:
         raise ValueError("We currently only accept 'verb', 'target', or 'verbtarget'.")
     
@@ -183,7 +172,6 @@ def main():
             model=model,
             dataloader=test_loader,
             device='cuda',
-            save_results_path=config.save_results_path
         )
     else:              
         # Train and test the model
@@ -209,7 +197,6 @@ def main():
             model=model,
             dataloader=test_loader,
             device='cuda',
-            save_results_path=config.save_results_path,
             verbose=True,
         )
 

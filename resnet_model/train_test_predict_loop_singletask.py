@@ -80,6 +80,9 @@ def train_model_singletask(config,
                 class_correct[cls] += ((task_preds == cls) & (task_gt_ids == cls)).sum().item()
                 class_counts[cls] += (task_gt_ids == cls).sum().item()
             
+            #remove
+                
+            
             
         # Compute per-class accuracy & mean accuracy
         class_accuracies = {
@@ -149,7 +152,6 @@ def test_model_singletask(config,
                model, 
                dataloader, 
                device='cuda', 
-               save_results_path='',
                verbose=True):
     
     if config.verb_and_target_gt_present_for_test:
@@ -157,14 +159,12 @@ def test_model_singletask(config,
                                 model = model, 
                                 dataloader = dataloader, 
                                 device=device, 
-                                save_results_path=save_results_path,
                                 verbose=verbose )
     else:
         predict_with_model_singletask(config=config, 
                            model = model, 
                             dataloader = dataloader,   
                             device=device, 
-                            save_results_path=save_results_path,
                             verbose=verbose )
         
             
@@ -173,7 +173,6 @@ def test_model_with_evaluation_singletask(config,
                             model, 
                             dataloader, 
                             device='cuda', 
-                            save_results_path='',
                             verbose=True ):
     
     task_name = config.task_name
@@ -183,6 +182,7 @@ def test_model_with_evaluation_singletask(config,
     class_correct = defaultdict(int)
     class_counts = defaultdict(int)
     results = {}
+    logits_results = {}  # Dictionary to store logits
 
     with torch.no_grad():
         for imgs, masks, instrument_ids, instance_ids, task_gt_ids, mask_names in dataloader:
@@ -191,10 +191,10 @@ def test_model_with_evaluation_singletask(config,
             instrument_ids = instrument_ids.to(device)
             task_gt_ids = task_gt_ids.to(device)
 
-            task_preds = model(imgs, masks, instrument_ids)
+            task_logits = model(imgs, masks, instrument_ids)
 
             # Get predicted classes
-            task_preds = torch.argmax(task_preds, dim=1)
+            task_preds = torch.argmax(task_logits, dim=1)
 
             # Compute accuracy
             total_task_correct += (task_preds == task_gt_ids).sum().item()
@@ -206,12 +206,22 @@ def test_model_with_evaluation_singletask(config,
                 class_correct[cls] += ((task_preds == cls) & (task_gt_ids == cls)).sum().item()
                 class_counts[cls] += (task_gt_ids == cls).sum().item()
 
-            # Store results in dictionary
+            
             for i in range(len(mask_names)):
+                # Store results in dictionary
                 results[mask_names[i]] = {
                     f"{task_name}": task_preds[i].item(),
                     "instance_id": instance_ids[i]
                 }
+                
+                # Store full logits
+                logits_results[mask_names[i]] = {
+                    "logits": task_logits[i].tolist(),  # Convert tensor to list
+                    "instance_id": instance_ids[i]
+                }
+            
+            #remove
+                       
             
               
     # Compute per-class accuracy & mean accuracy
@@ -227,9 +237,19 @@ def test_model_with_evaluation_singletask(config,
     if verbose:
         print(f"  {task_name} Accuracy: {task_accuracy:.2f}", flush=True)
 
-    if save_results_path:  # Save predictions to JSON
-        with open(save_results_path, 'w') as f:
+    if hasattr(config, "save_results_path"):
+        # Save predictions to JSON
+        with open(config.save_results_path, 'w') as f:
             json.dump(results, f, indent=4)
+
+        print(f"Predictions saved to {config.save_results_path}", flush=True)
+
+    # Save logits to separate JSON file
+    if hasattr(config, "save_logits_path") :
+        with open(config.save_logits_path, 'w') as f:
+            json.dump(logits_results, f, indent=4)
+            
+        print(f"logits saved to {config.save_logits_path}", flush=True)
 
     return task_accuracy, mean_accuracy  #Return accuracy
 
@@ -238,19 +258,17 @@ def test_model_with_evaluation_singletask(config,
 def predict_with_model_singletask(config,
                        model, 
                        dataloader,
-                       save_results_path='',
                        device='cuda',
                        verbose=True):
-    
-    
-    
+        
     # Create the save directory if it doesn't exist
     os.makedirs(config.work_dir, exist_ok=True)   
     task_name = config.task_name
     
     model = model.to(device)
     model.eval()
-    results = {}  # Dictionary to store predictions
+    results = {}  # Dictionary to store top-class predictions
+    logits_results = {}  # Dictionary to store logits
     
     if verbose:
         print('began prediction...', flush=True)
@@ -262,22 +280,41 @@ def predict_with_model_singletask(config,
             instrument_id = instrument_id.to(device)
 
             # Perform predictions
-            task_preds = model(img, mask, instrument_id)
+            task_logits  = model(img, mask, instrument_id)
 
             # Get predicted classes
             task_preds = torch.argmax(task_preds, dim=1)
 
-            # Store results
+            
             for i in range(len(mask_name)):
+                # Store results top prediction
                 results[mask_name[i]] = {
                     f"{task_name}": task_preds[i].item(),
                     "instance_id": instance_id[i]
                 }
+           
+                # Store full logits
+                logits_results[mask_name[i]] = {
+                    f"logits_{task_name}": task_logits[i].tolist(),  # Convert tensor to list
+                    "instance_id": instance_id[i]
+                }   
+            
+            #remove
+                   
             
                
-    
-    # Save predictions to JSON
-    with open(save_results_path, 'w') as f:
-        json.dump(results, f, indent=4)
+    if hasattr(config, "save_results_path"):
+        # Save predictions to JSON
+        with open(config.save_results_path, 'w') as f:
+            json.dump(results, f, indent=4)
 
-    print(f"Predictions saved to {save_results_path}", flush=True)
+        print(f"Predictions saved to {config.save_results_path}", flush=True)
+
+    # Save logits to separate JSON file
+    if hasattr(config, "save_logits_path") :
+        with open(config.save_logits_path, 'w') as f:
+            json.dump(logits_results, f, indent=4)
+            
+        print(f"logits saved to {config.save_logits_path}", flush=True)
+        
+        

@@ -29,27 +29,25 @@ class MultiTaskLoss(nn.Module):
             frequency_arranged_by_index = np.array(frequency_arranged_by_index,  dtype=float).reshape(-1, 1) # make 56x1
             
             
-            frequency_verbs =  np.matmul(verbtarget_to_verb_matrix,  frequency_arranged_by_index).reshape(-1)
-            frequency_targets = np.matmul(verbtarget_to_target_matrix,  frequency_arranged_by_index).reshape(-1)  
-            
-            # print('frequency_verbs', frequency_verbs)      
-            # print('frequency_verbs', frequency_verbs)          
+            frequency_arranged_by_index_verbs =  np.matmul(verbtarget_to_verb_matrix,  frequency_arranged_by_index).reshape(-1)
+            frequency_arranged_by_index_targets = np.matmul(verbtarget_to_target_matrix,  frequency_arranged_by_index).reshape(-1)  
                         
-            min_freq = 1
-            loss_verb_class_weights = [(1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor)  
-                                       for freq in frequency_verbs] 
-            loss_target_class_weights = [(1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor)  
-                                         for freq in frequency_targets]  
+             
+            loss_verb_class_weights = [(1 / freq ** config.dataset_weight_scaling_factor) if freq > 0 else 0    
+                                       for freq in frequency_arranged_by_index_verbs] 
+            loss_target_class_weights = [(1 / freq ** config.dataset_weight_scaling_factor) if freq > 0 else 0    
+                                       for freq in frequency_arranged_by_index_targets] 
+            
             total_weight_verb = sum(loss_verb_class_weights)
             total_weight_target = sum(loss_target_class_weights)
             
             loss_verb_class_weights_normalized = [weight/total_weight_verb  for weight in loss_verb_class_weights] 
             loss_target_class_weights_normalized = [weight/total_weight_target  for weight in loss_target_class_weights] 
             
-            # print('loss_verb_class_weights_normalized')
-            # print(loss_verb_class_weights_normalized)
-            # print('loss_target_class_weights_normalized')
-            # print(loss_target_class_weights_normalized)
+            print('loss_verb_class_weights_normalized')
+            print(loss_verb_class_weights_normalized)
+            print('loss_target_class_weights_normalized')
+            print(loss_target_class_weights_normalized)
             
             loss_verb_class_weights_normalized = torch.tensor(loss_verb_class_weights_normalized,dtype=torch.float, device='cuda')
             loss_target_class_weights_normalized = torch.tensor(loss_target_class_weights_normalized,dtype=torch.float, device='cuda')
@@ -89,17 +87,15 @@ class MultiTaskLossThreeTasks(nn.Module):
             
             frequency_verbs =  np.matmul(verbtarget_to_verb_matrix,  frequency_arranged_by_index).reshape(-1)
             frequency_targets = np.matmul(verbtarget_to_target_matrix,  frequency_arranged_by_index).reshape(-1)  
-            frequency_verbtargets = frequency_arranged_by_index.reshape(-1)
-            
-            # print('frequency_verbs', frequency_verbs)      
-            # print('frequency_verbs', frequency_verbs)          
+            frequency_verbtargets = frequency_arranged_by_index.reshape(-1) # reshape back to 56. 
+                   
                         
-            min_freq = 1
-            loss_verbtarget_class_weights = [(1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor)  
+
+            loss_verbtarget_class_weights = [(1 / freq ** config.dataset_weight_scaling_factor) if freq > 0 else 0   
                                        for freq in frequency_verbtargets] 
-            loss_verb_class_weights = [(1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor)  
+            loss_verb_class_weights = [(1 / freq ** config.dataset_weight_scaling_factor if freq > 0 else 0)  
                                        for freq in frequency_verbs] 
-            loss_target_class_weights = [(1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor)  
+            loss_target_class_weights = [(1 / freq ** config.dataset_weight_scaling_factor if freq > 0 else 0)  
                                          for freq in frequency_targets]  
             
             total_weight_verbtarget = sum(loss_verbtarget_class_weights)
@@ -130,6 +126,7 @@ class MultiTaskLossThreeTasks(nn.Module):
         else:
             self.criterion_verb = nn.CrossEntropyLoss()
             self.criterion_target = nn.CrossEntropyLoss()    
+            self.criterion_verbtarget = nn.CrossEntropyLoss()
 
     def forward(self, verbtarget_preds, verb_preds, target_preds, verbtarget_labels,  verb_labels, target_labels):
         loss_verbtarget = self.criterion_verbtarget(verbtarget_preds, verbtarget_labels)
