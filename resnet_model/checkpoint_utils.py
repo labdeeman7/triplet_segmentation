@@ -16,8 +16,9 @@ def save_checkpoint(model, optimizer, epoch, best_val_accuracy, file_path):
     print(f"Checkpoint saved to {file_path}", flush=True)
 
 
-def load_checkpoint(file_path, model, optimizer=None):
+def load_checkpoint(config, model, optimizer=None):
     """Loads a checkpoint and restores the model and optimizer states."""
+    file_path = config.load_from_checkpoint
     assert os.path.isfile(file_path), f'file path not found {file_path}' 
     
     checkpoint = torch.load(file_path)

@@ -17,3 +17,5 @@ work_dirs/
 results_from_dgx/
 
 prototype/inputs/
+
+checkpoints/

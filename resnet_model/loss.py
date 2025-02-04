@@ -68,4 +68,73 @@ class MultiTaskLoss(nn.Module):
         loss_verb = self.criterion_verb(verb_preds, verb_labels)
         loss_target = self.criterion_target(target_preds, target_labels)
         return loss_verb + loss_target
+
+
+
+class MultiTaskLossThreeTasks(nn.Module):
+    def __init__(self, config):
+        super(MultiTaskLoss, self).__init__()
+        if hasattr(config, "task_class_frequencies"):
+            
+            #get frequency per class, this was not necessary. It is cool, but not necessary. Wasted hours. 
+            verbtarget_to_verb_matrix, verbtarget_to_target_matrix = get_verbtarget_to_verb_and_target_matrix()
+            
+            
+            class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()}
+            frequency_arranged_by_index = [config.task_class_frequencies[cls] 
+                                           for cls in sorted(class_to_idx_zero_index, 
+                                                key=class_to_idx_zero_index.get)]
+            frequency_arranged_by_index = np.array(frequency_arranged_by_index,  dtype=float).reshape(-1, 1) # make 56x1
+            
+            
+            frequency_verbs =  np.matmul(verbtarget_to_verb_matrix,  frequency_arranged_by_index).reshape(-1)
+            frequency_targets = np.matmul(verbtarget_to_target_matrix,  frequency_arranged_by_index).reshape(-1)  
+            frequency_verbtargets = frequency_arranged_by_index.reshape(-1)
+            
+            # print('frequency_verbs', frequency_verbs)      
+            # print('frequency_verbs', frequency_verbs)          
+                        
+            min_freq = 1
+            loss_verbtarget_class_weights = [(1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor)  
+                                       for freq in frequency_verbtargets] 
+            loss_verb_class_weights = [(1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor)  
+                                       for freq in frequency_verbs] 
+            loss_target_class_weights = [(1 / max(freq, min_freq) ** config.dataset_weight_scaling_factor)  
+                                         for freq in frequency_targets]  
+            
+            total_weight_verbtarget = sum(loss_verbtarget_class_weights)
+            total_weight_verb = sum(loss_verb_class_weights)
+            total_weight_target = sum(loss_target_class_weights)
+            
+            loss_verbtarget_class_weights_normalized = [weight/total_weight_verbtarget  for weight in loss_verbtarget_class_weights] 
+            loss_verb_class_weights_normalized = [weight/total_weight_verb  for weight in loss_verb_class_weights] 
+            loss_target_class_weights_normalized = [weight/total_weight_target  for weight in loss_target_class_weights] 
+            
+            print('loss_verb_class_weights_normalized')
+            print(loss_verb_class_weights_normalized)
+            print('loss_target_class_weights_normalized')
+            print(loss_target_class_weights_normalized)
+            print('loss_verbtarget_class_weights_normalized')
+            print(loss_verbtarget_class_weights_normalized)
+            
+            loss_verbtarget_class_weights_normalized = torch.tensor(loss_verbtarget_class_weights_normalized,dtype=torch.float, device='cuda')
+            loss_verb_class_weights_normalized = torch.tensor(loss_verb_class_weights_normalized,dtype=torch.float, device='cuda')
+            loss_target_class_weights_normalized = torch.tensor(loss_target_class_weights_normalized,dtype=torch.float, device='cuda')
+            
+            self.criterion_verbtarget = nn.CrossEntropyLoss(loss_verbtarget_class_weights_normalized)
+            self.criterion_verb = nn.CrossEntropyLoss(loss_verb_class_weights_normalized)
+            self.criterion_target = nn.CrossEntropyLoss(loss_target_class_weights_normalized)
+            
+            raise ValueError('just stay')
+            
+        else:
+            self.criterion_verb = nn.CrossEntropyLoss()
+            self.criterion_target = nn.CrossEntropyLoss()    
+
+    def forward(self, verbtarget_preds, verb_preds, target_preds, verbtarget_labels,  verb_labels, target_labels):
+        loss_verbtarget = self.criterion_verbtarget(verbtarget_preds, verbtarget_labels)
+        loss_verb = self.criterion_verb(verb_preds, verb_labels)
+        loss_target = self.criterion_target(target_preds, target_labels)
+        return loss_verbtarget +  0.5*loss_verb + 0.5*loss_target
+    
     

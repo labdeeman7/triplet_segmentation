@@ -35,7 +35,7 @@ def train_model_multitask(config,
     os.makedirs(config.work_dir, exist_ok=True)    
 
     for epoch in range(start_epoch, num_epochs):
-        print(f'started epoch {epoch}', flush=True)
+        print(f'started epoch {epoch+1}', flush=True)
         model.train()
         running_loss = 0.0
         total_verb_correct = 0
@@ -139,6 +139,7 @@ def train_model_multitask(config,
                                                                                                                                         verbose=True)
 
         average_val_accuracy = (val_verb_accuracy + val_target_accuracy)
+        average_val_mean_accuracy = (val_verb_accuracy + val_target_accuracy)
         
         if verbose:
             print(f"Val Verb Accuracy: {val_verb_accuracy:.2f}", flush=True)
@@ -153,12 +154,13 @@ def train_model_multitask(config,
             "val_target_accuracy": val_target_accuracy,
             "val_target_mean_accuracy": val_mean_target_accuracy,
             "average_val_accuracy": average_val_accuracy,
+            "average_val_mean_accuracy": average_val_mean_accuracy
         })
         
         
         # Save the best model
-        if average_val_accuracy > best_val_accuracy:
-            best_val_accuracy = average_val_accuracy
+        if average_val_mean_accuracy > best_val_accuracy:
+            best_val_accuracy = average_val_mean_accuracy
             best_model_path = os.path.join(config.work_dir, "best_model.pth")
             save_checkpoint(model, optimizer, epoch, best_val_accuracy, best_model_path)
             print(f"New best model saved to {best_model_path} with accuracy {best_val_accuracy:.2f}", flush=True)

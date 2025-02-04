@@ -168,14 +168,15 @@ def main():
     if config.allow_resume:
         if os.path.isdir(config.work_dir) and len(os.listdir(config.work_dir) ):            
             start_epoch, best_val_accuracy = load_checkpoint_from_latest(config, model, optimizer)
-            print(f'resuming from epoch, {start_epoch}, best_val_accuracy {best_val_accuracy}' )
+            print(f'resuming from epoch, {start_epoch+1}, best_val_accuracy {best_val_accuracy}' )
     
     if config.load_from_checkpoint:
         start_epoch, best_val_accuracy = load_checkpoint(config, model, optimizer)
-        print(f'load from epoch, {start_epoch}, best_val_accuracy {best_val_accuracy}' )
+        print(f'load from epoch, {start_epoch+1}, best_val_accuracy {best_val_accuracy}' )
 
     # Run in prediction mode
     if config.predict_only_mode:
+        print(f'predicting only with checkpoint {config.load_from_checkpoint}')
         assert config.load_from_checkpoint, "A checkpoint to load the model is required for prediction mode."
         _predict_with_model(
             config=config,

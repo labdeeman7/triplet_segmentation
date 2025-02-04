@@ -1,4 +1,4 @@
-runai submit resnet-fpn-multitask-class-imbalance\
+runai submit resnet-fpn-multitask-class-imbalance-2\
   -i aicregistry:5000/talabi:mmdet \
   --gpu 1 \
   -p talabi \

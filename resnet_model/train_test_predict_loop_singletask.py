@@ -38,7 +38,7 @@ def train_model_singletask(config,
     os.makedirs(config.work_dir, exist_ok=True)    
 
     for epoch in range(start_epoch, num_epochs):
-        print(f'started epoch {epoch}, best_val_accuracy, {best_val_accuracy}', flush=True)
+        print(f'started epoch {epoch+1}, best_val_accuracy, {best_val_accuracy}', flush=True)
         model.train()
         running_loss = 0.0
         total_task_correct = 0
@@ -128,8 +128,8 @@ def train_model_singletask(config,
         
         
         # Save the best model
-        if val_task_accuracy > best_val_accuracy:
-            best_val_accuracy = val_task_accuracy
+        if val_mean_accuracy > best_val_accuracy:
+            best_val_accuracy = val_mean_accuracy
             best_model_path = os.path.join(config.work_dir, "best_model.pth")
             save_checkpoint(model, optimizer, epoch, best_val_accuracy, best_model_path)
             print(f"New best model saved to {best_model_path} with accuracy {best_val_accuracy:.2f}", flush=True)
