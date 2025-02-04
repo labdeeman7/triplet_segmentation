@@ -2,7 +2,7 @@ from os.path import join
 import os
 
 # Hyperparameters
-batch_size = 16
+batch_size = 32
 num_epochs = 20
 learning_rate = 0.0005
 

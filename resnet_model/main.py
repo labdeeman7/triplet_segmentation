@@ -124,7 +124,7 @@ def main():
     elif  config.architecture == 'multitaskthreetasks':               
         _loss_fn = MultiTaskLossThreeTasks(config)    
     else:
-        raise ValueError("we currently only accept 'singletask', 'multitask'")      
+        raise ValueError("we currently only accept 'singletask', 'multitask', 'multitaskthreetasks'")      
 
     train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
