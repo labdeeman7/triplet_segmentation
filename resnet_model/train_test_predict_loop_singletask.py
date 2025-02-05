@@ -117,7 +117,8 @@ def train_model_singletask(config,
         val_task_accuracy, val_mean_accuracy = test_model_with_evaluation_singletask(config,
                                                 model, 
                                                 val_loader, 
-                                                device=device, 
+                                                device=device,
+                                                store_results=False, 
                                                 verbose=True)
         
         if verbose:
@@ -151,7 +152,8 @@ def train_model_singletask(config,
 def test_model_singletask(config,
                model, 
                dataloader, 
-               device='cuda', 
+               device='cuda',
+               store_results = True, 
                verbose=True):
     
     if config.verb_and_target_gt_present_for_test:
@@ -159,12 +161,14 @@ def test_model_singletask(config,
                                 model = model, 
                                 dataloader = dataloader, 
                                 device=device, 
+                                store_results=store_results,
                                 verbose=verbose )
     else:
         predict_with_model_singletask(config=config, 
                            model = model, 
                             dataloader = dataloader,   
                             device=device, 
+                            store_results=store_results,
                             verbose=verbose )
         
             
@@ -173,6 +177,7 @@ def test_model_with_evaluation_singletask(config,
                             model, 
                             dataloader, 
                             device='cuda', 
+                            store_results = True,
                             verbose=True ):
     
     task_name = config.task_name
@@ -237,19 +242,20 @@ def test_model_with_evaluation_singletask(config,
     if verbose:
         print(f"  {task_name} Accuracy: {task_accuracy:.2f}", flush=True)
 
-    if hasattr(config, "save_results_path"):
-        # Save predictions to JSON
-        with open(config.save_results_path, 'w') as f:
-            json.dump(results, f, indent=4)
+    if store_results:
+        if hasattr(config, "save_results_path"):
+            # Save predictions to JSON
+            with open(config.save_results_path, 'w') as f:
+                json.dump(results, f, indent=4)
 
-        print(f"Predictions saved to {config.save_results_path}", flush=True)
+            print(f"Predictions saved to {config.save_results_path}", flush=True)
 
-    # Save logits to separate JSON file
-    if hasattr(config, "save_logits_path") :
-        with open(config.save_logits_path, 'w') as f:
-            json.dump(logits_results, f, indent=4)
-            
-        print(f"logits saved to {config.save_logits_path}", flush=True)
+        # Save logits to separate JSON file
+        if hasattr(config, "save_logits_path") :
+            with open(config.save_logits_path, 'w') as f:
+                json.dump(logits_results, f, indent=4)
+                
+            print(f"logits saved to {config.save_logits_path}", flush=True)
 
     return task_accuracy, mean_accuracy  #Return accuracy
 
@@ -259,6 +265,7 @@ def predict_with_model_singletask(config,
                        model, 
                        dataloader,
                        device='cuda',
+                       store_results = True,
                        verbose=True):
         
     # Create the save directory if it doesn't exist
@@ -283,7 +290,7 @@ def predict_with_model_singletask(config,
             task_logits  = model(img, mask, instrument_id)
 
             # Get predicted classes
-            task_preds = torch.argmax(task_preds, dim=1)
+            task_preds = torch.argmax(task_logits, dim=1)
 
             
             for i in range(len(mask_name)):
@@ -302,19 +309,19 @@ def predict_with_model_singletask(config,
             #remove
                    
             
-               
-    if hasattr(config, "save_results_path"):
-        # Save predictions to JSON
-        with open(config.save_results_path, 'w') as f:
-            json.dump(results, f, indent=4)
+    if store_results:           
+        if hasattr(config, "save_results_path"):
+            # Save predictions to JSON
+            with open(config.save_results_path, 'w') as f:
+                json.dump(results, f, indent=4)
 
-        print(f"Predictions saved to {config.save_results_path}", flush=True)
+            print(f"Predictions saved to {config.save_results_path}", flush=True)
 
-    # Save logits to separate JSON file
-    if hasattr(config, "save_logits_path") :
-        with open(config.save_logits_path, 'w') as f:
-            json.dump(logits_results, f, indent=4)
-            
-        print(f"logits saved to {config.save_logits_path}", flush=True)
+        # Save logits to separate JSON file
+        if hasattr(config, "save_logits_path") :
+            with open(config.save_logits_path, 'w') as f:
+                json.dump(logits_results, f, indent=4)
+                
+            print(f"logits saved to {config.save_logits_path}", flush=True)
         
         

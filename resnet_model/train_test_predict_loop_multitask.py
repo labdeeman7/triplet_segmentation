@@ -179,7 +179,7 @@ def test_model_multitask(config,
                model, 
                dataloader, 
                device='cuda', 
-               save_results_path='',
+               store_results = True,
                verbose=True):
     
     if config.verb_and_target_gt_present_for_test:
@@ -187,21 +187,21 @@ def test_model_multitask(config,
                                 model = model, 
                                 dataloader = dataloader, 
                                 device=device, 
-                                save_results_path=save_results_path,
+                                store_results=store_results,
                                 verbose=verbose )
     else:
         predict_with_model_multitask(config=config, 
                            model = model, 
                             dataloader = dataloader,   
                             device=device, 
-                            save_results_path=save_results_path,
+                            store_results=store_results,
                             verbose=verbose )
         
 def test_model_with_evaluation_multitask(config,
                             model, 
                             dataloader, 
-                            device='cuda', 
-                            save_results_path='',
+                            device='cuda',
+                            store_results = True,
                             verbose=True ):
     
     
@@ -215,6 +215,7 @@ def test_model_with_evaluation_multitask(config,
     class_target_correct = defaultdict(int)
     class_target_counts = defaultdict(int)
     results = {}
+    logits_results = {}  # Dictionary to store logits
 
     with torch.no_grad():
         for img, mask, instrument_id, instance_id, verb_id, target_id, mask_name in dataloader:
@@ -224,11 +225,11 @@ def test_model_with_evaluation_multitask(config,
             verb_id = verb_id.to(device)
             target_id = target_id.to(device)
 
-            verb_preds, target_preds = model(img, mask, instrument_id)
+            verb_logits, target_logits = model(img, mask, instrument_id)
 
             # Get predicted classes
-            verb_preds = torch.argmax(verb_preds, dim=1)
-            target_preds = torch.argmax(target_preds, dim=1)
+            verb_preds = torch.argmax(verb_logits, dim=1)
+            target_preds = torch.argmax(target_logits, dim=1)
 
             # Compute accuracy
             total_verb_correct += (verb_preds == verb_id).sum().item()
@@ -248,11 +249,19 @@ def test_model_with_evaluation_multitask(config,
                 class_target_correct[cls] += ((target_preds == cls) & (target_id == cls)).sum().item()
                 class_target_counts[cls] += (target_id == cls).sum().item()   
 
-            # Store results in dictionary
+            
             for i in range(len(mask_name)):
+                # Store results in dictionary
                 results[mask_name[i]] = {
                     "verb": verb_preds[i].item(),
                     "target": target_preds[i].item(),
+                    "instance_id": instance_id[i]
+                }
+                
+                # Store full logits
+                logits_results[mask_name[i]] = {
+                    "logits_verb": verb_logits[i].tolist(),  # Convert tensor to list
+                    "logits_target": target_logits[i].tolist(),  # Convert tensor to list
                     "instance_id": instance_id[i]
                 }
 
@@ -278,9 +287,20 @@ def test_model_with_evaluation_multitask(config,
         print(f"  Verb Accuracy: {verb_accuracy:.2f}", flush=True)
         print(f"  Target Accuracy: {target_accuracy:.2f}", flush=True) 
 
-    if save_results_path:  # Save predictions to JSON
-        with open(save_results_path, 'w') as f:
-            json.dump(results, f, indent=4)
+    if store_results:           
+        if hasattr(config, "save_results_path"):
+            # Save predictions to JSON
+            with open(config.save_results_path, 'w') as f:
+                json.dump(results, f, indent=4)
+
+            print(f"Predictions saved to {config.save_results_path}", flush=True)
+
+        # Save logits to separate JSON file
+        if hasattr(config, "save_logits_path") :
+            with open(config.save_logits_path, 'w') as f:
+                json.dump(logits_results, f, indent=4)
+                
+            print(f"logits saved to {config.save_logits_path}", flush=True)
 
     return verb_accuracy, target_accuracy, mean_verb_accuracy, mean_target_accuracy  #Return both accuracy
 
@@ -288,18 +308,17 @@ def test_model_with_evaluation_multitask(config,
 def predict_with_model_multitask(config,
                        model, 
                        dataloader,
-                       save_results_path='',
                        device='cuda',
+                       store_results = True,
                        verbose=True):
-    
-    
     
     # Create the save directory if it doesn't exist
     os.makedirs(config.work_dir, exist_ok=True)   
     
     model = model.to(device)
     model.eval()
-    results = {}  # Dictionary to store predictions
+    results = {}  # Dictionary to store top-class predictions
+    logits_results = {}  # Dictionary to store logits
     
     if verbose:
         print('began prediction...', flush=True)
@@ -311,22 +330,40 @@ def predict_with_model_multitask(config,
             instrument_id = instrument_id.to(device)
 
             # Perform predictions
-            verb_preds, target_preds = model(img, mask, instrument_id)
+            verb_logits, target_logits = model(img, mask, instrument_id)
 
             # Get predicted classes
-            verb_preds = torch.argmax(verb_preds, dim=1)
-            target_preds = torch.argmax(target_preds, dim=1)
+            verb_preds = torch.argmax(verb_logits, dim=1)
+            target_preds = torch.argmax(target_logits, dim=1)
 
-            # Store results
+            
             for i in range(len(mask_name)):
+                # Store results top prediction
                 results[mask_name[i]] = {
                     "verb": verb_preds[i].item(),
                     "target": target_preds[i].item(),
                     "instance_id": instance_id[i]
                 }
+                
+                # Store full logits
+                logits_results[mask_name[i]] = {
+                    "logits_verb": verb_logits[i].tolist(),  # Convert tensor to list
+                    "logits_target": target_logits[i].tolist(),  # Convert tensor to list
+                    "instance_id": instance_id[i]
+                }
     
     # Save predictions to JSON
-    with open(save_results_path, 'w') as f:
-        json.dump(results, f, indent=4)
+    if store_results:           
+        if hasattr(config, "save_results_path"):
+            # Save predictions to JSON
+            with open(config.save_results_path, 'w') as f:
+                json.dump(results, f, indent=4)
 
-    print(f"Predictions saved to {save_results_path}", flush=True)
+            print(f"Predictions saved to {config.save_results_path}", flush=True)
+
+        # Save logits to separate JSON file
+        if hasattr(config, "save_logits_path") :
+            with open(config.save_logits_path, 'w') as f:
+                json.dump(logits_results, f, indent=4)
+                
+            print(f"logits saved to {config.save_logits_path}", flush=True)

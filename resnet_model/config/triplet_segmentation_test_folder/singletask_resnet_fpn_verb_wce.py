@@ -49,13 +49,13 @@ save_results_path = join(work_dir, 'results.json')
 save_logits_path = join(work_dir, 'results_logits.json')
 
 # Checkpoint and Prediction Settings
-allow_resume = True # allows resumption from latest checkpoint
-load_from_checkpoint = None
-predict_only_mode = False
+# allow_resume = True # allows resumption from latest checkpoint
+# load_from_checkpoint = None
+# predict_only_mode = False
 
-# allow_resume = False # allows resumption from latest checkpoint
-# load_from_checkpoint =  join(work_dir, 'best_model.pth')
-# predict_only_mode = True
+allow_resume = False # allows resumption from latest checkpoint
+load_from_checkpoint =  join(work_dir, 'best_model.pth')
+predict_only_mode = True
 
 
 # Other Constants

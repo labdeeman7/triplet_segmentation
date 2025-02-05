@@ -5,23 +5,23 @@ from PIL import Image, ImageEnhance, ImageFilter
 import numpy as np
 
 class CustomTransform:
-    def __init__(self, image_size=(480, 854), model_input_size=(448, 800), mean=None, std=None):
+    def __init__(self, image_size=(224, 224), model_input_size=(224, 224), mean=None, std=None):
         self.image_size = image_size  # Final resized dimensions
         self.model_input_size = model_input_size   # Final cropped dimensions
         self.mean = mean if mean else [0.485, 0.456, 0.406]  # Default mean for ImageNet
         self.std = std if std else [0.229, 0.224, 0.225]    # Default std for ImageNet
 
     def __call__(self, img, mask, train_mode):
+        
+        img = F.resize(img, self.model_input_size)
+        mask = F.resize(mask, self.model_input_size)
+        
         if train_mode:
-            # Resize to larger size for cropping
-            img = F.resize(img, self.image_size)
-            mask = F.resize(mask, self.image_size)
-
-            # Random cropping occurs randomly.
-            if random.random() > 0.5: 
-                i, j, h, w = T.RandomCrop.get_params(img, output_size=self.model_input_size)
-                img = F.crop(img, i, j, h, w)
-                mask = F.crop(mask, i, j, h, w)
+            # # Random cropping occurs randomly.
+            # if random.random() > 0.5: 
+            #     i, j, h, w = T.RandomCrop.get_params(img, output_size=self.model_input_size)
+            #     img = F.crop(img, i, j, h, w)
+            #     mask = F.crop(mask, i, j, h, w)
 
             # Random horizontal flip
             if random.random() > 0.5:
@@ -57,10 +57,7 @@ class CustomTransform:
             # # add specular reflection
             # if random.random() > 0.5:
             #     img = self.add_specular_reflections(img) 
-                       
-        # Resize image and mask
-        img = F.resize(img, self.model_input_size)
-        mask = F.resize(mask, self.model_input_size) 
+
         
         # Convert to tensor
         img = F.to_tensor(img)

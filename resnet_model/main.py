@@ -106,19 +106,22 @@ def main():
     
     # weighted cross entropy 
     if config.architecture == 'singletask': 
-        loss_class_weights = {cls: (1 / (freq ** config.dataset_weight_scaling_factor)) if freq > 0 else 0  
-                      for cls, freq in config.task_class_frequencies.items()}   
-        #Normalize and ensure it sums to 1. 
-        total_weight = sum(loss_class_weights.values())
-        loss_normalized_weights = {cls: weight / total_weight for cls, weight in loss_class_weights.items()}  
-        # arange and convert to tensor.   
-        loss_weights_tensor = torch.tensor([loss_normalized_weights[cls] for cls in 
-                                            sorted(class_to_idx_zero_index, 
-                                                key=class_to_idx_zero_index.get)],
-                                        dtype=torch.float, 
-                                        device='cuda') 
-        print(f'loss_weights_tensor {loss_weights_tensor}')             
-        _loss_fn = nn.CrossEntropyLoss(weight=loss_weights_tensor)        
+        if config.use_wce:
+            loss_class_weights = {cls: (1 / (freq ** config.dataset_weight_scaling_factor)) if freq > 0 else 0  
+                        for cls, freq in config.task_class_frequencies.items()}   
+            #Normalize and ensure it sums to 1. 
+            total_weight = sum(loss_class_weights.values())
+            loss_normalized_weights = {cls: weight / total_weight for cls, weight in loss_class_weights.items()}  
+            # arange and convert to tensor.   
+            loss_weights_tensor = torch.tensor([loss_normalized_weights[cls] for cls in 
+                                                sorted(class_to_idx_zero_index, 
+                                                    key=class_to_idx_zero_index.get)],
+                                            dtype=torch.float, 
+                                            device='cuda') 
+            print(f'loss_weights_tensor {loss_weights_tensor}')             
+            _loss_fn = nn.CrossEntropyLoss(weight=loss_weights_tensor)        
+        else: 
+            _loss_fn = nn.CrossEntropyLoss()   
     elif  config.architecture == 'multitask':               
         _loss_fn = MultiTaskLoss(config)
     elif  config.architecture == 'multitaskthreetasks':               
@@ -189,8 +192,8 @@ def main():
         )
         
         #load best model checkpoint and test.
-        best_model_path = join(config.work_dir, 'best_model.pth')
-        start_epoch, best_val_accuracy = load_checkpoint(best_model_path, model, optimizer)
+        config.load_from_checkpoint = join(config.work_dir, 'best_model.pth')
+        start_epoch, best_val_accuracy = load_checkpoint(config, model, optimizer)
         
         _test_model(
             config=config,
