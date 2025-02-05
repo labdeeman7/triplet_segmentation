@@ -55,7 +55,22 @@ def main():
     
     # Dynamic model import
     model_class = getattr(importlib.import_module("models"), config.model_name)
-    # print(model_class)
+    
+    # Get some constants that are dependent on information
+    if task_name == 'verb':
+        num_task_class = num_verbs
+        print('class names', list(verb_dict.values())) 
+    elif task_name == 'target':
+        num_task_class = num_targets
+        print('class names', list(target_dict.values())) 
+    elif task_name == 'verbtarget':
+        num_task_class = num_verbtargets
+        print('class names', list(verbtarget_dict.values()))      
+    elif task_name == 'standard_multitask_verb_and_target':
+        num_task_class = num_verbtargets
+        print('class names', list(verbtarget_dict.values()))       
+    else:
+        raise ValueError("We currently only accept 'verb', 'target', 'verbtarget', 'standard_multitask_verb_and_target")
 
     # Define the transformation
     transform = CustomTransform(image_size=config.image_size,
@@ -72,8 +87,10 @@ def main():
         _train_model = train_model_multitask
         _test_model = test_model_multitask
         _predict_with_model = predict_with_model_multitask
+    elif  config.architecture == 'multitaskthreetasks':
+        pass        
     else:
-        raise ValueError("we currently only accept 'singletask', 'multitask'")      
+        raise ValueError("we currently only accept 'singletask', 'multitask', 'multitaskthreetasks'")      
 
     # Datasets and DataLoaders
     train_dataset = _SurgicalDataset(config, config.train_image_dir, config.train_ann_dir, transform, train_mode=True)    
@@ -84,29 +101,23 @@ def main():
     else:
         test_dataset = PredictionDataset(config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
 
-
+    # Get class_name to id. 
     if task_name == 'verb':
-        num_task_class = num_verbs
-        print('class names', list(verb_dict.values())) 
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in verb_dict.items()} # for loss weights 
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in verb_dict.items()}  
     elif task_name == 'target':
-        num_task_class = num_targets
-        print('class names', list(target_dict.values())) 
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in target_dict.items()} # for loss weights     
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in target_dict.items()} 
     elif task_name == 'verbtarget':
-        num_task_class = num_verbtargets
-        print('class names', list(verbtarget_dict.values())) 
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()} # for loss weights      
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()}   
     elif task_name == 'standard_multitask_verb_and_target':   
-        num_task_class = num_verbtargets
-        print('class names', list(verbtarget_dict.values())) 
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()} # for loss weights          
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()}        
     else:
         raise ValueError("We currently only accept 'verb', 'target', 'verbtarget', 'verbtarget_multitask' or 'triplet'")
     
-    # weighted cross entropy 
+    # weighted cross entropy or normal crossentropy 
     if config.architecture == 'singletask': 
         if config.use_wce:
+            assert hasattr(config, "task_class_frequencies"), 'task frequencies are required'
+            print('using weighted cross entropy')
             loss_class_weights = {cls: (1 / (freq ** config.dataset_weight_scaling_factor)) if freq > 0 else 0  
                         for cls, freq in config.task_class_frequencies.items()}   
             #Normalize and ensure it sums to 1. 
@@ -121,8 +132,9 @@ def main():
             print(f'loss_weights_tensor {loss_weights_tensor}')             
             _loss_fn = nn.CrossEntropyLoss(weight=loss_weights_tensor)        
         else: 
+            print('using standard cross entropy')
             _loss_fn = nn.CrossEntropyLoss()   
-    elif  config.architecture == 'multitask':               
+    elif config.architecture == 'multitask':               
         _loss_fn = MultiTaskLoss(config)
     elif  config.architecture == 'multitaskthreetasks':               
         _loss_fn = MultiTaskLossThreeTasks(config)    
@@ -149,6 +161,8 @@ def main():
         model = model_class(num_instruments, num_task_class)
     elif config.architecture == 'multitask':   
         model = model_class(num_instruments, num_verbs, num_targets) 
+    elif config.architecture == 'multitaskthreetasks':   
+        model = model_class(num_instruments, num_verbs, num_targets, num_verbtargets)     
         
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
 

@@ -16,8 +16,9 @@ verbtarget_dict = TripletSegmentationVariables.categories['verbtarget']
 class MultiTaskLoss(nn.Module):
     def __init__(self, config):
         super(MultiTaskLoss, self).__init__()
-        if hasattr(config, "task_class_frequencies"):
-            
+        if config.use_wce:
+            print('using weighted cross entropy')
+            assert hasattr(config, "task_class_frequencies"), 'task frequencies are required'
             #get frequency per class, this was not necessary. It is cool, but not necessary. Wasted hours. 
             verbtarget_to_verb_matrix, verbtarget_to_target_matrix = get_verbtarget_to_verb_and_target_matrix()
             
@@ -56,9 +57,10 @@ class MultiTaskLoss(nn.Module):
             self.criterion_verb = nn.CrossEntropyLoss(loss_verb_class_weights_normalized)
             self.criterion_target = nn.CrossEntropyLoss(loss_target_class_weights_normalized)
             
-            # raise ValueError('just stay')
+
             
         else:
+            print('using normal cross entropy')
             self.criterion_verb = nn.CrossEntropyLoss()
             self.criterion_target = nn.CrossEntropyLoss()    
 
@@ -72,7 +74,8 @@ class MultiTaskLoss(nn.Module):
 class MultiTaskLossThreeTasks(nn.Module):
     def __init__(self, config):
         super(MultiTaskLoss, self).__init__()
-        if hasattr(config, "task_class_frequencies"):
+        if config.use_wce:
+            assert hasattr(config, "task_class_frequencies"), 'task frequencies are required'
             
             #get frequency per class, this was not necessary. It is cool, but not necessary. Wasted hours. 
             verbtarget_to_verb_matrix, verbtarget_to_target_matrix = get_verbtarget_to_verb_and_target_matrix()
@@ -132,6 +135,6 @@ class MultiTaskLossThreeTasks(nn.Module):
         loss_verbtarget = self.criterion_verbtarget(verbtarget_preds, verbtarget_labels)
         loss_verb = self.criterion_verb(verb_preds, verb_labels)
         loss_target = self.criterion_target(target_preds, target_labels)
-        return loss_verbtarget +  0.5*loss_verb + 0.5*loss_target
+        return loss_verbtarget +  loss_verb + loss_target
     
     

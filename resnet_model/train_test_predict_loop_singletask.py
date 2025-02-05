@@ -132,8 +132,8 @@ def train_model_singletask(config,
         
         
         # Save the best model
-        if val_mean_accuracy > best_val_accuracy:
-            best_val_accuracy = val_mean_accuracy
+        if val_task_accuracy > best_val_accuracy:
+            best_val_accuracy = val_task_accuracy
             best_model_path = os.path.join(config.work_dir, "best_model.pth")
             save_checkpoint(model, optimizer, epoch, best_val_accuracy, best_model_path)
             print(f"New best model saved to {best_model_path} with accuracy {best_val_accuracy:.2f}", flush=True)

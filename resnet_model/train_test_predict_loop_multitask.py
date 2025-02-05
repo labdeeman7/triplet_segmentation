@@ -35,7 +35,7 @@ def train_model_multitask(config,
     os.makedirs(config.work_dir, exist_ok=True)    
 
     for epoch in range(start_epoch, num_epochs):
-        print(f'started epoch {epoch+1}', flush=True)
+        print(f'started epoch {epoch+1}, best_val_accuracy, {best_val_accuracy}', flush=True)
         model.train()
         running_loss = 0.0
         total_verb_correct = 0
@@ -91,7 +91,8 @@ def train_model_multitask(config,
                 class_target_counts[cls] += (target_id == cls).sum().item()  
             
                   
-            
+            # Remove
+            break
         
         # Calculate metrics
         #Compute per-class accuracy & mean accuracy
@@ -136,6 +137,7 @@ def train_model_multitask(config,
                                                                                                                                         model, 
                                                                                                                                         val_loader, 
                                                                                                                                         device=device, 
+                                                                                                                                        store_results=False,
                                                                                                                                         verbose=True)
 
         average_val_accuracy = (val_verb_accuracy + val_target_accuracy)
@@ -159,8 +161,9 @@ def train_model_multitask(config,
         
         
         # Save the best model
-        if average_val_mean_accuracy > best_val_accuracy:
-            best_val_accuracy = average_val_mean_accuracy
+        # going back to saving with val_accuracy. 
+        if average_val_accuracy > best_val_accuracy:
+            best_val_accuracy = average_val_accuracy
             best_model_path = os.path.join(config.work_dir, "best_model.pth")
             save_checkpoint(model, optimizer, epoch, best_val_accuracy, best_model_path)
             print(f"New best model saved to {best_model_path} with accuracy {best_val_accuracy:.2f}", flush=True)
@@ -264,6 +267,9 @@ def test_model_with_evaluation_multitask(config,
                     "logits_target": target_logits[i].tolist(),  # Convert tensor to list
                     "instance_id": instance_id[i]
                 }
+            
+            # Remove
+            break    
 
     # Calculate metrics
     #Compute per-class accuracy & mean accuracy
@@ -351,6 +357,9 @@ def predict_with_model_multitask(config,
                     "logits_target": target_logits[i].tolist(),  # Convert tensor to list
                     "instance_id": instance_id[i]
                 }
+            
+            # Remove
+            break    
     
     # Save predictions to JSON
     if store_results:           

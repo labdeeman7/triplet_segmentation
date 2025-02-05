@@ -2,28 +2,26 @@ from os.path import join
 import os
 
 # Hyperparameters
-batch_size = 32
+batch_size = 64
 num_epochs = 20
-learning_rate = 0.001
+learning_rate = 0.0005
 
 # Dynamically set the experiment name from the filename
 import os
 experiment_name = os.path.splitext(os.path.basename(__file__))[0]
 
 # Model name
-model_name = 'SingleTaskResNetFPN'
-task_name = 'verbtarget'
+model_name = 'MultiTaskResNetFPNTransformerDecoder'
+task_name = 'standard_multitask_verb_and_target'
 
-description =  'resnet_fpn predicting verbtarget wce'
+description =  'multitask ResnetFPNWithTransformerDecoder predicting verb and targets with wce'
 
 
 if model_name in ['SingleTaskResNetFPN', 'SingleTaskResNetFPNWithDecoder']:
     architecture = 'singletask'
-elif  model_name in ['MultiTaskResNet', 'MultiTaskResNetFPN', 'MultiTaskResNetFPNMaskedEmbeddingsSharedTransformerDecoder',
-                     'MultiTaskResNetFPNMaskedEmbeddings']:  
+elif  model_name in ['MultiTaskResNet', 'MultiTaskResNetFPN', 'MultiTaskResNetFPNTransformerDecoder']:  
     architecture = 'multitask'
-    
-
+  
 
 # Dataset Directories
 if os.name == 'posix':  # Unix-like systems (Linux, macOS)
@@ -50,17 +48,17 @@ save_results_path = join(work_dir, 'results.json')
 save_logits_path = join(work_dir, 'results_logits.json')
 
 # Checkpoint and Prediction Settings
-# allow_resume = True # allows resumption from latest checkpoint
-# load_from_checkpoint = None
-# predict_only_mode = False
+allow_resume = True # allows resumption from latest checkpoint
+load_from_checkpoint = None
+predict_only_mode = False
 
-allow_resume = False # allows resumption from latest checkpoint
-load_from_checkpoint =  join(work_dir, 'best_model.pth')
-predict_only_mode = True
+# allow_resume = False # allows resumption from latest checkpoint
+# load_from_checkpoint =  join(work_dir, 'best_model.pth')
+# predict_only_mode = True
 
 # Other Constants
-image_size = (480, 854)
-model_input_size = (448, 800)
+image_size = (224, 224)
+model_input_size = (224, 224)
 
 # class frequencies weights from train dataset. 
 task_class_frequencies = {
@@ -121,6 +119,6 @@ task_class_frequencies = {
     "cut,omentum": 0,
     "clip,cystic_plate": 0
 }
-
+use_wce = True
 
 dataset_weight_scaling_factor = 0.25
