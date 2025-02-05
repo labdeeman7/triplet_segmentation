@@ -92,7 +92,6 @@ def train_model_multitask(config,
             
                   
             # Remove
-            break
         
         # Calculate metrics
         #Compute per-class accuracy & mean accuracy
@@ -269,7 +268,6 @@ def test_model_with_evaluation_multitask(config,
                 }
             
             # Remove
-            break    
 
     # Calculate metrics
     #Compute per-class accuracy & mean accuracy
@@ -358,8 +356,7 @@ def predict_with_model_multitask(config,
                     "instance_id": instance_id[i]
                 }
             
-            # Remove
-            break    
+            # Remove 
     
     # Save predictions to JSON
     if store_results:           

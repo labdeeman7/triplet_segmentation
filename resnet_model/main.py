@@ -214,6 +214,7 @@ def main():
             model=model,
             dataloader=test_loader,
             device='cuda',
+            store_results=True,
             verbose=True,
         )
 
