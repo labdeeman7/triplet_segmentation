@@ -22,15 +22,15 @@ class TripletSegmentationVariables(object):
         '6': 'irrigator'
     }),
     
-    'instrument_direct_pred': OrderedDict({
-        '1': 'grasper',
-        '2': 'hook',
-        '3': 'irrigator',
-        '4': 'clipper',
-        '5': 'bipolar',
-        '6': 'scissors',
-        '7': 'snare'
-    }),
+    # 'instrument_direct_pred': OrderedDict({
+    #     '1': 'grasper',
+    #     '2': 'hook',
+    #     '3': 'irrigator',
+    #     '4': 'clipper',
+    #     '5': 'bipolar',
+    #     '6': 'scissors',
+    #     '7': 'snare'
+    # }),
        
     'verb': OrderedDict({
         '1': 'grasp',
@@ -225,6 +225,36 @@ class TripletSegmentationVariables(object):
             '56': 'null_verb,null_target'})
     
     }
+    
+    instrument_to_verb_classes = {
+                                0: [0, 1, 2, 8, 9],
+                                1: [0, 1, 2, 3, 9],
+                                2: [1, 2, 3, 5, 9],
+                                3: [2, 3, 5, 9],
+                                4: [4, 9],
+                                5: [1, 2, 6, 7, 9]
+                                }
+    
+    instrument_to_target_classes = {
+                                0: [0, 1, 2, 3, 4, 8, 10, 11, 12, 13, 14],
+                                1: [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 13, 14],
+                                2: [0, 1, 2, 3, 4, 5, 8, 10, 11, 14],
+                                3: [0, 1, 2, 3, 5, 8, 9, 10, 11, 14],
+                                4: [1, 2, 3, 4, 5, 14],
+                                5: [0, 1, 2, 4, 6, 7, 8, 10, 14]
+                                }
+    
+    instrument_to_verbtarget_classes = {
+                                    0: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,55],
+                                    1: [0,1,2,6,9,12,14,15,17,19,20,22,23,24,25,26,27,28,29,30,31,32,33,34,55],
+                                    2: [0,1,2,17,19,23,24,25,26,27,28,29,30,33,34,35,36,37,38,55],
+                                    3: [0, 1, 2, 30, 35, 36, 39, 40, 41, 42, 43, 44, 55],
+                                    4: [45, 46, 47, 48, 49, 55],
+                                    5: [0, 1, 2, 17, 19, 20, 34, 50, 51, 52, 53, 54, 55]
+                                    }
+    
+    
+     
     
     instrument_colors = {
     'grasper': (255, 0, 0),        # red

@@ -3,8 +3,9 @@ from .multitask_resnet_fpn import MultiTaskResNetFPN
 # from .multitask_resnet_fpn_learnable_embeddings import MultiTaskResNetFPNLearnableEmbeddings
 # from .multitask_resnet_fpn_masked_embeddings import MultiTaskResNetFPNMaskedEmbeddings
 from .multitask_resnet_fpn_transformer_decoder import MultiTaskResNetFPNTransformerDecoder
+from .singletask_resnet_fpn_parrallel_fc_layers import SingleTaskResNetFPNForParallelFCLayers
 from .singletask_resnet_fpn import SingleTaskResNetFPN
 # from .another_model import AnotherModel
 
 __all__ = ['MultiTaskResNet', 'MultiTaskResNetFPN', 'MultiTaskResNetFPNTransformerDecoder',
-           'SingleTaskResNetFPN']
+           'SingleTaskResNetFPN', 'SingleTaskResNetFPNForParallelFCLayers']

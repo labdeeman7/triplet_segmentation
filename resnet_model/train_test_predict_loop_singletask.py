@@ -80,8 +80,7 @@ def train_model_singletask(config,
                 class_correct[cls] += ((task_preds == cls) & (task_gt_ids == cls)).sum().item()
                 class_counts[cls] += (task_gt_ids == cls).sum().item()
             
-            #remove
-                
+            #remove  
             
             
         # Compute per-class accuracy & mean accuracy
@@ -164,13 +163,21 @@ def test_model_singletask(config,
                                 store_results=store_results,
                                 verbose=verbose )
     else:
-        predict_with_model_singletask(config=config, 
-                           model = model, 
-                            dataloader = dataloader,   
-                            device=device, 
-                            store_results=store_results,
-                            verbose=verbose )
-        
+        if config.architecture == 'singletask_parrallel_fc':
+            predict_with_model_parallel_fc_layers(config=config, 
+                                model = model, 
+                                dataloader = dataloader,  
+                                device=device, 
+                                store_results=store_results,
+                                verbose=verbose )
+        else:    
+            predict_with_model_singletask(config=config, 
+                            model = model, 
+                                dataloader = dataloader,   
+                                device=device, 
+                                store_results=store_results,
+                                verbose=verbose )
+            
             
 
 def test_model_with_evaluation_singletask(config,
@@ -305,8 +312,7 @@ def predict_with_model_singletask(config,
                     f"logits_{task_name}": task_logits[i].tolist(),  # Convert tensor to list
                     "instance_id": instance_id[i]
                 }   
-            
-            #remove
+
                    
             
     if store_results:           
@@ -325,3 +331,76 @@ def predict_with_model_singletask(config,
             print(f"logits saved to {config.save_logits_path}", flush=True)
         
         
+
+# predict loop for parallel fc layers
+def predict_with_model_parallel_fc_layers(config,
+                                  model, 
+                                  dataloader,
+                                  device='cuda',
+                                  store_results=True,
+                                  verbose=True):
+    
+    
+    instrument_to_task_classes = config.instrument_to_task_classes
+    # Create the save directory if it doesn't exist
+    os.makedirs(config.work_dir, exist_ok=True)   
+    task_name = config.task_name
+    
+    
+    
+    model = model.to(device)
+    model.eval()
+    results = {}  # Dictionary to store top-class predictions
+    logits_results = {}  # Dictionary to store logits
+    
+    if verbose:
+        print('Began prediction...', flush=True)
+
+    with torch.no_grad():
+        for img, mask, instrument_id, instance_id, mask_name in dataloader:
+            img = img.to(device)
+            mask = mask.to(device)
+            instrument_id = instrument_id.to(device)
+
+            # Perform predictions
+            task_logits  = model(img, mask, instrument_id)
+
+            # Get predicted local class IDs
+            local_task_preds = torch.argmax(task_logits, dim=1)
+
+            for i in range(len(mask_name)):
+                instr_id = instrument_id[i].item()
+                local_task_id = local_task_preds[i].item()
+
+                # Convert local_task_id back to global_task_id
+                if instr_id in instrument_to_task_classes:
+                    global_task_id = instrument_to_task_classes[instr_id][local_task_id]
+                else:
+                    raise ValueError(f"Instrument ID {instr_id} not found in instrument_to_task_classes.")
+
+                # Store results with the global task ID
+                results[mask_name[i]] = {
+                    f"{task_name}": global_task_id,  # Store global task ID
+                    "instance_id": instance_id[i]
+                }
+           
+                # Store full logits (no change here)
+                logits_results[mask_name[i]] = {
+                    f"logits_{task_name}": task_logits[i].tolist(),
+                    "instance_id": instance_id[i]
+                }  
+                
+                #remove
+
+    if store_results:           
+        if hasattr(config, "save_results_path"):
+            # Save predictions to JSON
+            with open(config.save_results_path, 'w') as f:
+                json.dump(results, f, indent=4)
+            print(f"Predictions saved to {config.save_results_path}", flush=True)
+
+        # Save logits to separate JSON file
+        if hasattr(config, "save_logits_path") :
+            with open(config.save_logits_path, 'w') as f:
+                json.dump(logits_results, f, indent=4)
+            print(f"Logits saved to {config.save_logits_path}", flush=True)

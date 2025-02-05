@@ -7,6 +7,7 @@ from model_utils import get_verbtarget_to_verb_and_target_matrix
 from utils.general.dataset_variables import TripletSegmentationVariables
 import numpy as np
 import pprint
+import torch.nn.functional as F
 
 
 verb_dict =  TripletSegmentationVariables.categories['verb']
@@ -137,4 +138,26 @@ class MultiTaskLossThreeTasks(nn.Module):
         loss_target = self.criterion_target(target_preds, target_labels)
         return loss_verbtarget +  loss_verb + loss_target
     
+
+# def compute_multifc_loss(model, img, mask, instrument_id, task_id):
+#     """
+#     Computes loss for a batch where each instrument has a separate FC layer.
+
+#     Args:
+#         model: The SingleTaskResNetFPNForParallelFCLayers model with per-instrument FC layers.
+#         img: Tensor of shape [batch_size, 3, H, W], input images.
+#         mask: Tensor of shape [batch_size, 1, H, W], input segmentation masks.
+#         instrument_id: Tensor of shape [batch_size], indicating instrument used.
+#         task_id: Tensor of shape [batch_size], indicating local task class (verb, target, or verb_target).
     
+#     Returns:
+#         Mean loss across the batch.
+#     """
+
+#     # Forward pass → Already applies the correct FC layer inside the model
+#     task_preds = model(img, mask, instrument_id)  
+
+#     # Compute cross-entropy loss directly on task_preds
+#     loss = F.cross_entropy(task_preds, task_id)
+
+#     return loss

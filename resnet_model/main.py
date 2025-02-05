@@ -8,11 +8,12 @@ import argparse
 import importlib
 import torch
 from torch.utils.data import DataLoader
-from resnet_model.dataset import SurgicalSingletaskDataset, PredictionDataset, SurgicalMultitaskDataset
+from resnet_model.dataset import SurgicalSingletaskDataset, PredictionDataset, SurgicalMultitaskDataset, SurgicalSingletaskDatasetForParallelFCLayers
 from loss import MultiTaskLoss, MultiTaskLossThreeTasks
 from custom_transform import CustomTransform
 from utils.general.dataset_variables import TripletSegmentationVariables
 from resnet_model.train_test_predict_loop_singletask import train_model_singletask, test_model_singletask, predict_with_model_singletask
+from resnet_model.train_test_predict_loop_singletask import predict_with_model_parallel_fc_layers
 from resnet_model.train_test_predict_loop_multitask import train_model_multitask, test_model_multitask, predict_with_model_multitask
 from resnet_model.checkpoint_utils import load_checkpoint, load_checkpoint_from_latest
 from resnet_model.model_utils import get_dataset_label_ids
@@ -81,12 +82,18 @@ def main():
         _train_model = train_model_singletask
         _test_model = test_model_singletask
         _predict_with_model = predict_with_model_singletask
+    elif  config.architecture == 'singletask_parrallel_fc':
+        _SurgicalDataset = SurgicalSingletaskDatasetForParallelFCLayers
+        _train_model = train_model_singletask
+        _test_model = test_model_singletask
+        _predict_with_model = predict_with_model_parallel_fc_layers     
         
     elif  config.architecture == 'multitask':   
         _SurgicalDataset = SurgicalMultitaskDataset
         _train_model = train_model_multitask
         _test_model = test_model_multitask
         _predict_with_model = predict_with_model_multitask
+         
     elif  config.architecture == 'multitaskthreetasks':
         pass        
     else:
@@ -134,6 +141,8 @@ def main():
         else: 
             print('using standard cross entropy')
             _loss_fn = nn.CrossEntropyLoss()   
+    elif config.architecture == 'singletask_parrallel_fc':
+        _loss_fn = nn.CrossEntropyLoss()           
     elif config.architecture == 'multitask':               
         _loss_fn = MultiTaskLoss(config)
     elif  config.architecture == 'multitaskthreetasks':               
@@ -159,6 +168,8 @@ def main():
     
     if config.architecture == 'singletask':
         model = model_class(num_instruments, num_task_class)
+    elif config.architecture == 'singletask_parrallel_fc':
+        model = model_class(num_instruments, config.instrument_to_task_classes)    
     elif config.architecture == 'multitask':   
         model = model_class(num_instruments, num_verbs, num_targets) 
     elif config.architecture == 'multitaskthreetasks':   
