@@ -60,3 +60,58 @@ def get_verbtarget_to_verb_and_target_matrix():
         verbtarget_to_target_matrix[target_idx, vt_idx] = 1
 
     return verbtarget_to_verb_matrix, verbtarget_to_target_matrix
+
+
+
+   
+def save_visualization(img, mask, prediction_name, ground_truth_name, save_path, alpha=0.5, mean=None, std=None):
+    import os
+    import torchvision.transforms.functional as F
+    from PIL import Image, ImageDraw, ImageFont
+    """
+    Creates and saves a visualization of the input image with overlaid mask, 
+    prediction name, and optionally ground truth name. Handles ImageNet normalization.
+
+    Args:
+        img (Tensor): The input image tensor (C, H, W).
+        mask (Tensor): The binary mask tensor (H, W).
+        prediction_name (str): Text for the predicted class or ID.
+        ground_truth_name (str, optional): Text for the ground truth class or ID.
+        save_path (str): Path to save the visualization PNG.
+        alpha (float): Transparency level for the mask overlay.
+        mean (list, optional): Mean values used for normalization. Default is ImageNet mean.
+        std (list, optional): Std values used for normalization. Default is ImageNet std.
+    """
+    mean = mean if mean else [0.485, 0.456, 0.406]
+    std = std if std else [0.229, 0.224, 0.225]
+
+    # Denormalize the image
+    img = img.clone()
+    for t, m, s in zip(img, mean, std):
+        t.mul_(s).add_(m)  # Reverse the normalization: img = img * std + mean
+
+    # Convert to PIL image
+    image_pil = F.to_pil_image(img)
+    mask_rgb = F.to_pil_image(mask.byte() * 255)
+    image_pil = image_pil.convert("RGBA")
+    mask_rgb = mask_rgb.convert("RGBA")
+    blended = Image.blend(image_pil, mask_rgb, alpha)
+
+    # Convert to RGB for annotation
+    blended = blended.convert("RGB")
+    draw = ImageDraw.Draw(blended)
+    font = ImageFont.load_default()
+
+    # Add prediction text
+    draw.text((10, 10), prediction_name, fill="red", font=font)
+
+    # Add ground truth text if available
+    if ground_truth_name:
+        draw.text((10, 30), ground_truth_name, fill="blue", font=font)
+
+    # Save the visualization
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    blended.save(save_path)
+    print(f"Saved visualization to {save_path}")
+
+

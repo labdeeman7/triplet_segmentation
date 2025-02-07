@@ -6,6 +6,8 @@ import types
 from resnet_model.checkpoint_utils import save_checkpoint
 import numpy as np
 from collections import defaultdict
+from resnet_model.model_utils import save_visualization
+from utils.general.dataset_variables import TripletSegmentationVariables
 
 def train_model_singletask(config,
                 model, 
@@ -88,8 +90,7 @@ def train_model_singletask(config,
             cls: class_correct[cls] / class_counts[cls] if class_counts[cls] > 0 else 0
             for cls in class_counts
         }
-        mean_accuracy = np.mean(list(class_accuracies.values()))
-        
+        mean_accuracy = np.mean(list(class_accuracies.values()))           
         
         # Calculate accuracy
         train_loss = running_loss / len(train_loader)
@@ -113,7 +114,7 @@ def train_model_singletask(config,
 
         # Validate the model
         print('Validation')
-        val_task_accuracy, val_mean_accuracy = test_model_with_evaluation_singletask(config,
+        val_task_accuracy, val_mean_accuracy = validation_singletask(config,
                                                 model, 
                                                 val_loader, 
                                                 device=device,
@@ -147,40 +148,10 @@ def train_model_singletask(config,
         if os.path.exists(previous_saved_model_path):
             os.remove(previous_saved_model_path)
 
-
-def test_model_singletask(config,
-               model, 
-               dataloader, 
-               device='cuda',
-               store_results = True, 
-               verbose=True):
-    
-    if config.verb_and_target_gt_present_for_test:
-        test_model_with_evaluation_singletask(config=config, 
-                                model = model, 
-                                dataloader = dataloader, 
-                                device=device, 
-                                store_results=store_results,
-                                verbose=verbose )
-    else:
-        if config.architecture == 'singletask_parrallel_fc':
-            predict_with_model_parallel_fc_layers(config=config, 
-                                model = model, 
-                                dataloader = dataloader,  
-                                device=device, 
-                                store_results=store_results,
-                                verbose=verbose )
-        else:    
-            predict_with_model_singletask(config=config, 
-                            model = model, 
-                                dataloader = dataloader,   
-                                device=device, 
-                                store_results=store_results,
-                                verbose=verbose )
-            
+         
             
 
-def test_model_with_evaluation_singletask(config,
+def validation_singletask(config,
                             model, 
                             dataloader, 
                             device='cuda', 
@@ -339,14 +310,18 @@ def predict_with_model_parallel_fc_layers(config,
                                   device='cuda',
                                   store_results=True,
                                   verbose=True):
-    
-    
     instrument_to_task_classes = config.instrument_to_task_classes
-    # Create the save directory if it doesn't exist
     os.makedirs(config.work_dir, exist_ok=True)   
     task_name = config.task_name
     
+    task_id_to_task_name_dict = TripletSegmentationVariables.categories[task_name]
+    task_name_to_task_id_dict = {value: key for key, value in task_id_to_task_name_dict.items()}
     
+    # Initialize accuracy tracking
+    total_task_correct = 0
+    total_samples = 0
+    class_correct = defaultdict(int)
+    class_counts = defaultdict(int)
     
     model = model.to(device)
     model.eval()
@@ -357,13 +332,13 @@ def predict_with_model_parallel_fc_layers(config,
         print('Began prediction...', flush=True)
 
     with torch.no_grad():
-        for img, mask, instrument_id, instance_id, mask_name in dataloader:
+        for img, mask, instrument_id, instance_id, mask_name, ground_truth_name in dataloader:
             img = img.to(device)
             mask = mask.to(device)
             instrument_id = instrument_id.to(device)
 
             # Perform predictions
-            task_logits  = model(img, mask, instrument_id)
+            task_logits = model(img, mask, instrument_id)
 
             # Get predicted local class IDs
             local_task_preds = torch.argmax(task_logits, dim=1)
@@ -371,36 +346,76 @@ def predict_with_model_parallel_fc_layers(config,
             for i in range(len(mask_name)):
                 instr_id = instrument_id[i].item()
                 local_task_id = local_task_preds[i].item()
+                gt_name = ground_truth_name[i]
+                
+                # Ground truth processing
+                if gt_name:
+                    # print(gt_name)
+                    # print(type(gt_name))
+                    gt_id = int(task_name_to_task_id_dict[gt_name]) - 1
+                else: 
+                    gt_id = None    
 
                 # Convert local_task_id back to global_task_id
                 if instr_id in instrument_to_task_classes:
                     global_task_id = instrument_to_task_classes[instr_id][local_task_id]
                 else:
                     raise ValueError(f"Instrument ID {instr_id} not found in instrument_to_task_classes.")
+                
+                # Visualization
+                prediction_name = f"Prediction: {global_task_id} {task_id_to_task_name_dict[str(global_task_id+1)]}"
+                ground_truth_text = f"GT:  {gt_id} {gt_name}" if gt_name else None
+                save_path = os.path.join(config.vis_dir, f"{mask_name[i]}.png")
 
-                # Store results with the global task ID
+                save_visualization(img[i].cpu(), mask[i].cpu(), prediction_name, ground_truth_text, save_path)
+                
+                # Accuracy Calculation (only when ground truth is available)
+                if gt_name:
+                    is_correct = (global_task_id == gt_id)
+                    total_task_correct += is_correct
+                    total_samples += 1
+                    
+                    # Per-class accuracy
+                    class_correct[gt_id] += is_correct
+                    class_counts[gt_id] += 1
+
+                # Store results
                 results[mask_name[i]] = {
-                    f"{task_name}": global_task_id,  # Store global task ID
+                    f"{task_name}": global_task_id,
                     "instance_id": instance_id[i]
                 }
-           
-                # Store full logits (no change here)
+                
+                # Store full logits
                 logits_results[mask_name[i]] = {
                     f"logits_{task_name}": task_logits[i].tolist(),
                     "instance_id": instance_id[i]
-                }  
-                
-                #remove
+                }
+    
+    # Compute per-class accuracy and mean accuracy only when I have groundtruth
+    if total_samples > 0:
+        class_accuracies = {
+            cls: class_correct[cls] / class_counts[cls] if class_counts[cls] > 0 else 0
+            for cls in class_counts
+        }
+        mean_accuracy = np.mean(list(class_accuracies.values())) if class_accuracies else 0
+        task_accuracy = total_task_correct / total_samples
 
-    if store_results:           
+        if verbose:
+            print(f"\n{task_name} Accuracy: {task_accuracy:.2f}")
+            print(f"Mean Class Accuracy: {mean_accuracy:.2f}")
+            print(f"Class-wise Accuracy: {class_accuracies}")
+    else:
+        if verbose:
+            print("\nNo ground truth provided for accuracy calculation.")
+    
+    # Save results if required
+    if store_results:
         if hasattr(config, "save_results_path"):
-            # Save predictions to JSON
             with open(config.save_results_path, 'w') as f:
                 json.dump(results, f, indent=4)
-            print(f"Predictions saved to {config.save_results_path}", flush=True)
-
-        # Save logits to separate JSON file
-        if hasattr(config, "save_logits_path") :
+            print(f"Predictions saved to {config.save_results_path}")
+        
+        if hasattr(config, "save_logits_path"):
             with open(config.save_logits_path, 'w') as f:
                 json.dump(logits_results, f, indent=4)
-            print(f"Logits saved to {config.save_logits_path}", flush=True)
+            print(f"Logits saved to {config.save_logits_path}")

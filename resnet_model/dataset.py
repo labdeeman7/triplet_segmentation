@@ -237,6 +237,7 @@ class SurgicalMultitaskDataset(Dataset):
 
 class PredictionDataset(Dataset):
     def __init__(self, 
+                 config,
                  img_dir, 
                  ann_for_second_stage_dir,
                  transform=None,
@@ -246,6 +247,7 @@ class PredictionDataset(Dataset):
         self.transform = transform
         self.train_mode = train_mode
         self.class_name = 'PredictionDataset'
+        self.task_name = config.task_name
         
         self.ann_for_second_stage_names = os.listdir(self.ann_for_second_stage_dir) 
         self.img_paths = os.listdir(self.img_dir) 
@@ -260,7 +262,18 @@ class PredictionDataset(Dataset):
                                          ann_for_second_stage_name)
  
         ann_for_second_stage_name_base = ann_for_second_stage_name.split('.')[0]
-        img_name, instrument_name, instance_id, _, _ = ann_for_second_stage_name_base.split(',')
+        img_name, instrument_name, instance_id, verb_name, target_name = ann_for_second_stage_name_base.split(',')
+        
+        if self.task_name == 'verb':
+            ground_truth_name = verb_name
+        elif self.task_name == 'target':
+            ground_truth_name = target_name 
+        elif self.task_name == 'verbtarget':
+            if verb_name and target_name: 
+                ground_truth_name = f'{verb_name},{target_name}'
+            else:
+                ground_truth_name = None    
+        
         img_path = join(self.img_dir, f'{img_name}.png')
         instrument_id = int(INSTRUMENT_CLASS_TO_ID_DICT[instrument_name])-1
                 
@@ -271,7 +284,7 @@ class PredictionDataset(Dataset):
             img, mask = self.transform(img, mask, self.train_mode)  # Apply custom transformation
 
 
-        return img, mask, instrument_id, instance_id, ann_for_second_stage_name_base            
+        return img, mask, instrument_id, instance_id, ann_for_second_stage_name_base, ground_truth_name            
     
     
 

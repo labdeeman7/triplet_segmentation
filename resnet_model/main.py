@@ -12,7 +12,7 @@ from resnet_model.dataset import SurgicalSingletaskDataset, PredictionDataset, S
 from loss import MultiTaskLoss, MultiTaskLossThreeTasks
 from custom_transform import CustomTransform
 from utils.general.dataset_variables import TripletSegmentationVariables
-from resnet_model.train_test_predict_loop_singletask import train_model_singletask, test_model_singletask, predict_with_model_singletask
+from resnet_model.train_test_predict_loop_singletask import train_model_singletask,  predict_with_model_singletask
 from resnet_model.train_test_predict_loop_singletask import predict_with_model_parallel_fc_layers
 from resnet_model.train_test_predict_loop_multitask import train_model_multitask, test_model_multitask, predict_with_model_multitask
 from resnet_model.checkpoint_utils import load_checkpoint, load_checkpoint_from_latest
@@ -80,18 +80,15 @@ def main():
     if config.architecture == 'singletask':
         _SurgicalDataset = SurgicalSingletaskDataset
         _train_model = train_model_singletask
-        _test_model = test_model_singletask
         _predict_with_model = predict_with_model_singletask
     elif  config.architecture == 'singletask_parrallel_fc':
         _SurgicalDataset = SurgicalSingletaskDatasetForParallelFCLayers
         _train_model = train_model_singletask
-        _test_model = test_model_singletask
         _predict_with_model = predict_with_model_parallel_fc_layers     
         
     elif  config.architecture == 'multitask':   
         _SurgicalDataset = SurgicalMultitaskDataset
         _train_model = train_model_multitask
-        _test_model = test_model_multitask
         _predict_with_model = predict_with_model_multitask
          
     elif  config.architecture == 'multitaskthreetasks':
@@ -100,13 +97,11 @@ def main():
         raise ValueError("we currently only accept 'singletask', 'multitask', 'multitaskthreetasks'")      
 
     # Datasets and DataLoaders
-    train_dataset = _SurgicalDataset(config, config.train_image_dir, config.train_ann_dir, transform, train_mode=True)    
-    val_dataset = _SurgicalDataset(config, config.val_image_dir, config.val_ann_dir, transform, train_mode=True)
+    train_dataset = _SurgicalDataset(config, config.train_image_dir, config.train_ann_dir, transform, train_mode=False)    
+    val_dataset = _SurgicalDataset(config, config.val_image_dir, config.val_ann_dir, transform, train_mode=False)
+    test_dataset = PredictionDataset(config, config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
 
-    if config.verb_and_target_gt_present_for_test:
-        test_dataset = _SurgicalDataset(config, config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
-    else:
-        test_dataset = PredictionDataset(config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
+        
 
     # Get class_name to id. 
     if task_name == 'verb':
@@ -150,7 +145,7 @@ def main():
     else:
         raise ValueError("we currently only accept 'singletask', 'multitask', 'multitaskthreetasks'")      
 
-    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=False)
     val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False)
 
@@ -183,7 +178,7 @@ def main():
     
     #allow for resumption
     if config.allow_resume:
-        if os.path.isdir(config.work_dir) and len(os.listdir(config.work_dir) ):            
+        if os.path.isdir(config.work_dir) and  len([f for f in os.listdir(config.work_dir) if os.path.isfile(os.path.join(config.work_dir, f))]):            
             start_epoch, best_val_accuracy = load_checkpoint_from_latest(config, model, optimizer)
             print(f'resuming from epoch, {start_epoch+1}, best_val_accuracy {best_val_accuracy}' )
     
@@ -220,7 +215,7 @@ def main():
         config.load_from_checkpoint = join(config.work_dir, 'best_model.pth')
         start_epoch, best_val_accuracy = load_checkpoint(config, model, optimizer)
         
-        _test_model(
+        _predict_with_model(
             config=config,
             model=model,
             dataloader=test_loader,

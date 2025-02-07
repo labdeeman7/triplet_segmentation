@@ -131,17 +131,17 @@ def plot_instance_from_json_contour(contours_list: list,
         #plot the contours
         label_name = '' 
         
-        if class_names:
-            label_name = f'{class_names[i]}'
+        # if class_names:
+        #     label_name = f'{class_names[i]}'
         
-        if verb_names:
-            label_name =  f'{label_name}-{verb_names[i]}'   
+        # if verb_names:
+        #     label_name =  f'{label_name}-{verb_names[i]}'   
         
         if target_names:
             label_name =  f'{label_name}-{target_names[i]}'       
                         
-        if instance_ids:
-            label_name = f'{label_name}-{instance_ids[i]}'     
+        # if instance_ids:
+        #     label_name = f'{label_name}-{instance_ids[i]}'     
         
         normalized_rgb_color = tuple([x / 255 for x in colors[class_names[i]]])
         if fill_contour:
