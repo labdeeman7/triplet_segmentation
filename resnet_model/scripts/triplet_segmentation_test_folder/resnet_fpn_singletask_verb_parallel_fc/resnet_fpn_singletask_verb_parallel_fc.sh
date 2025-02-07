@@ -1,0 +1,11 @@
+#!/usr/bin/python
+
+echo "started ..."
+
+cd /nfs/home/talabi/repositories/triplet_segmentation/resnet_model
+
+echo "train and test resnet fpn single task verb parrallel fcs..."
+
+python main.py --config config.triplet_segmentation_test_folder.singletask_resnet_fpn_verb_parallel_fc
+
+echo "completed train and test resnet fpn single task verb parallel fcs..."

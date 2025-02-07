@@ -29,22 +29,22 @@ class CustomTransform:
                 mask = F.hflip(mask)
 
             # Random vertical flip
-            if random.random() > 0.5:
-                img = F.vflip(img)
-                mask = F.vflip(mask)
+            # if random.random() > 0.5:
+            #     img = F.vflip(img)
+            #     mask = F.vflip(mask)
 
             # Random brightness and contrast adjustments
-            if random.random() > 0.5:
-                enhancer = ImageEnhance.Brightness(img)
-                img = enhancer.enhance(random.uniform(0.8, 1.2))  # Brightness adjustment
-            if random.random() > 0.5:
-                enhancer = ImageEnhance.Contrast(img)
-                img = enhancer.enhance(random.uniform(0.8, 1.2))  # Contrast adjustment
+            # if random.random() > 0.5:
+            #     enhancer = ImageEnhance.Brightness(img)
+            #     img = enhancer.enhance(random.uniform(0.8, 1.2))  # Brightness adjustment
+            # if random.random() > 0.5:
+            #     enhancer = ImageEnhance.Contrast(img)
+            #     img = enhancer.enhance(random.uniform(0.8, 1.2))  # Contrast adjustment
 
-            # Color jittering
-            if random.random() > 0.5:
-                img = F.adjust_hue(img, random.uniform(-0.05, 0.05))  # Slight hue change
-                img = F.adjust_saturation(img, random.uniform(0.8, 1.2))  # Saturation change
+            # # Color jittering
+            # if random.random() > 0.5:
+            #     img = F.adjust_hue(img, random.uniform(-0.05, 0.05))  # Slight hue change
+            #     img = F.adjust_saturation(img, random.uniform(0.8, 1.2))  # Saturation change
 
             # Apply Gaussian blur
             # if random.random() > 0.5:
