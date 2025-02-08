@@ -61,6 +61,7 @@ class SingleTaskResNetFPNForParallelFCLayers(nn.Module):
         self.fc_task_dict = nn.ModuleDict({
             str(instr_id): nn.Sequential(
                 nn.Linear((256*4) + 64, 256),
+                nn.Linear(256, 256),
                 nn.ReLU(),
                 nn.Dropout(0.2),  # Added dropout for regularization
                 nn.Linear(256, len(local_task_classes))   # for each make an output the size of the local_task_classes

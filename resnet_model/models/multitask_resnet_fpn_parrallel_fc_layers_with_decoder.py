@@ -1,0 +1,163 @@
+import torch
+import torch.nn as nn
+from torchvision import models
+from torchvision.ops import FeaturePyramidNetwork
+from collections import OrderedDict
+
+class MultiTaskResNetFPNWithTransformers(nn.Module):
+    def __init__(self, 
+                 num_instruments, 
+                 num_verbs, 
+                 num_targets, 
+                 num_verbtarg, 
+                 embed_dim=64, 
+                 decoder_hidden_dim=256, 
+                 num_decoder_layers=4):
+        super(MultiTaskResNetFPNWithTransformers, self).__init__()
+
+        # ResNet Backbone
+        self.resnet = models.resnet50(pretrained=True)
+        original_conv1 = self.resnet.conv1
+        self.resnet.conv1 = nn.Conv2d(4, original_conv1.out_channels, original_conv1.kernel_size,
+                                      original_conv1.stride, original_conv1.padding, bias=original_conv1.bias)
+        self.resnet.conv1.weight.data[:, :3, :, :] = original_conv1.weight.data
+        self.resnet.conv1.weight.data[:, 3:, :, :] = 0.0  # Initialize mask input weights to zero
+
+        self.backbone = nn.ModuleDict({
+            "conv1": self.resnet.conv1,
+            "bn1": self.resnet.bn1,
+            "relu": self.resnet.relu,
+            "maxpool": self.resnet.maxpool,
+            "layer1": self.resnet.layer1,
+            "layer2": self.resnet.layer2,
+            "layer3": self.resnet.layer3,
+            "layer4": self.resnet.layer4
+        })
+
+        # Feature Pyramid Network (FPN)
+        self.fpn = FeaturePyramidNetwork([256, 512, 1024, 2048], 256)
+
+        # Mask Downsampling
+        self.mask_downsamplers = nn.ModuleDict({
+            "layer1": nn.AdaptiveAvgPool2d((56, 56)),
+            "layer2": nn.AdaptiveAvgPool2d((28, 28)),
+            "layer3": nn.AdaptiveAvgPool2d((14, 14)),
+            "layer4": nn.AdaptiveAvgPool2d((7, 7)),
+        })
+
+        self.global_pool = nn.AdaptiveAvgPool2d(1)
+
+        # Embeddings
+        self.instrument_class_embedding = nn.Embedding(num_instruments, embed_dim)
+        self.instrument_embedding = nn.Sequential(
+            nn.Linear((256 * 4) + embed_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, decoder_hidden_dim)
+        )
+        self.background_image_embedding = nn.Sequential(
+            nn.Linear(256 * 4, 128),
+            nn.ReLU(),
+            nn.Linear(128, decoder_hidden_dim)
+        )
+
+        # Transformer decoders for each instrument
+        self.transformer_decoders = nn.ModuleDict({
+            str(i): nn.TransformerDecoder(
+                nn.TransformerDecoderLayer(d_model=decoder_hidden_dim, nhead=8),
+                num_layers=num_decoder_layers
+            )
+            for i in range(num_instruments)
+        })
+
+        # Fully connected layers per instrument
+        self.fc_dict = nn.ModuleDict({
+            str(i): nn.ModuleDict({
+                "verbtarg": nn.Sequential(
+                    nn.Linear(decoder_hidden_dim, 256),
+                    nn.ReLU(),
+                    nn.Linear(256, num_verbtarg)
+                ),
+                "verbtarget_embed": nn.Linear(num_verbtarg, 128),  # Intermediate embedding
+                "verb": nn.Linear(128, num_verbs),  # Predicts verb from verbtarget embedding
+                "target": nn.Linear(128, num_targets)  # Predicts target from verbtarget embedding
+            })
+            for i in range(num_instruments)
+        })
+        
+    def pad_tensor(self, tensor, max_size):
+        """
+        Pads tensor with -inf values so all outputs have the same shape.
+        """
+        pad_size = max_size - tensor.size(1)
+        if pad_size > 0:
+            padding = torch.full((tensor.size(0), pad_size), float('-inf'), device=tensor.device)
+            return torch.cat((tensor, padding), dim=1)
+        return tensor      
+
+    def forward(self, img, mask, instrument_id):
+        combined_input = torch.cat((img, mask), dim=1)
+
+        # Backbone
+        out = self.backbone["conv1"](combined_input)
+        out = self.backbone["bn1"](out)
+        out = self.backbone["relu"](out)
+        out = self.backbone["maxpool"](out)
+
+        layer1 = self.backbone["layer1"](out)
+        layer2 = self.backbone["layer2"](layer1)
+        layer3 = self.backbone["layer3"](layer2)
+        layer4 = self.backbone["layer4"](layer3)
+
+        features = OrderedDict(layer1=layer1, layer2=layer2, layer3=layer3, layer4=layer4)
+        fpn_features = self.fpn(features)
+
+        # Extract instrument and background features
+        instrument_features = []
+        background_features = []
+        for level, downsampler in self.mask_downsamplers.items():
+            fpn_feature = fpn_features[level]
+            soft_mask = downsampler(mask)
+            instrument_features.append(self.global_pool(fpn_feature * soft_mask))
+            background_features.append(self.global_pool(fpn_feature * (1 - soft_mask)))
+
+        aggregated_instrument_features = torch.cat([feat.view(feat.size(0), -1) for feat in instrument_features], dim=1)
+        aggregated_background_features = torch.cat([feat.view(feat.size(0), -1) for feat in background_features], dim=1)
+
+        # Background embedding
+        background_embed = self.background_image_embedding(aggregated_background_features)
+        background_memory = background_embed.unsqueeze(0)
+
+        # Instrument embedding
+        instrument_class_features = self.instrument_class_embedding(instrument_id)
+        instrument_with_class_context_features = torch.cat((aggregated_instrument_features, instrument_class_features), dim=1)
+        instrument_embed = self.instrument_embedding(instrument_with_class_context_features).unsqueeze(0)
+
+        # Normalize embeddings
+        instrument_embed = instrument_embed / (instrument_embed.norm(dim=-1, keepdim=True) + 1e-6)
+        background_memory = background_memory / (background_memory.norm(dim=-1, keepdim=True) + 1e-6)
+
+        # Per-instrument transformer decoding and FC predictions
+        verbtarg_preds, verb_preds, target_preds = [], [], []
+        for i in range(img.size(0)):
+            instr_id = str(instrument_id[i].item())
+            if instr_id in self.transformer_decoders:
+                instrument_single = instrument_embed[:, i:i+1, :]
+                background_memory_single = background_memory[:, i:i+1, :]
+                
+                decoder_output = self.transformer_decoders[instr_id](instrument_single, background_memory_single)
+                decoder_output = decoder_output.squeeze(0)  # Remove sequence dim
+                
+                # Predict verbtarget
+                verbtarget_pred = self.fc_dict[instr_id]["verbtarg"](decoder_output)
+                verbtarg_preds.append(verbtarget_pred)
+
+                # Intermediate embedding
+                verbtarget_embed = self.fc_dict[instr_id]["verbtarget_embed"](verbtarg_preds[-1])
+
+                # Predict verb and target
+                verb_preds.append(self.fc_dict[instr_id]["verb"](verbtarget_embed))
+                target_preds.append(self.fc_dict[instr_id]["target"](verbtarget_embed))
+            else:
+                raise ValueError(f"Instrument ID {instr_id} not found.")
+
+        return torch.cat(verbtarg_preds, dim=0), torch.cat(verb_preds, dim=0), torch.cat(target_preds, dim=0)

@@ -97,11 +97,14 @@ def main():
         raise ValueError("we currently only accept 'singletask', 'multitask', 'multitaskthreetasks'")      
 
     # Datasets and DataLoaders
-    train_dataset = _SurgicalDataset(config, config.train_image_dir, config.train_ann_dir, transform, train_mode=False)    
+    train_dataset = _SurgicalDataset(config, config.train_image_dir, config.train_ann_dir, transform, train_mode=True)    
     val_dataset = _SurgicalDataset(config, config.val_image_dir, config.val_ann_dir, transform, train_mode=False)
     test_dataset = PredictionDataset(config, config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
-
-        
+     
+    
+    # assert train_dataset.ann_for_second_stage_names == val_dataset.ann_for_second_stage_names, "Train and validation datasets are not identical!"
+    # assert train_dataset.ann_for_second_stage_names == test_dataset.ann_for_second_stage_names, "Train and validation datasets are not identical!"
+  
 
     # Get class_name to id. 
     if task_name == 'verb':
@@ -145,7 +148,7 @@ def main():
     else:
         raise ValueError("we currently only accept 'singletask', 'multitask', 'multitaskthreetasks'")      
 
-    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False)
 

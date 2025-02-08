@@ -17,6 +17,7 @@ class CustomTransform:
         mask = F.resize(mask, self.model_input_size)
         
         if train_mode:
+            # pass
             # # Random cropping occurs randomly.
             # if random.random() > 0.5: 
             #     i, j, h, w = T.RandomCrop.get_params(img, output_size=self.model_input_size)
@@ -24,9 +25,9 @@ class CustomTransform:
             #     mask = F.crop(mask, i, j, h, w)
 
             # Random horizontal flip
-            if random.random() > 0.5:
-                img = F.hflip(img)
-                mask = F.hflip(mask)
+            # if random.random() > 0.5:
+            #     img = F.hflip(img)
+            #     mask = F.hflip(mask)
 
             # Random vertical flip
             # if random.random() > 0.5:
@@ -34,17 +35,17 @@ class CustomTransform:
             #     mask = F.vflip(mask)
 
             # Random brightness and contrast adjustments
-            # if random.random() > 0.5:
-            #     enhancer = ImageEnhance.Brightness(img)
-            #     img = enhancer.enhance(random.uniform(0.8, 1.2))  # Brightness adjustment
-            # if random.random() > 0.5:
-            #     enhancer = ImageEnhance.Contrast(img)
-            #     img = enhancer.enhance(random.uniform(0.8, 1.2))  # Contrast adjustment
+            if random.random() > 0.5:
+                enhancer = ImageEnhance.Brightness(img)
+                img = enhancer.enhance(random.uniform(0.8, 1.2))  # Brightness adjustment
+            if random.random() > 0.5:
+                enhancer = ImageEnhance.Contrast(img)
+                img = enhancer.enhance(random.uniform(0.8, 1.2))  # Contrast adjustment
 
-            # # Color jittering
-            # if random.random() > 0.5:
-            #     img = F.adjust_hue(img, random.uniform(-0.05, 0.05))  # Slight hue change
-            #     img = F.adjust_saturation(img, random.uniform(0.8, 1.2))  # Saturation change
+            # Color jittering
+            if random.random() > 0.5:
+                img = F.adjust_hue(img, random.uniform(-0.05, 0.05))  # Slight hue change
+                img = F.adjust_saturation(img, random.uniform(0.8, 1.2))  # Saturation change
 
             # Apply Gaussian blur
             # if random.random() > 0.5:

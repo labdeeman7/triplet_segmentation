@@ -42,6 +42,7 @@ def train_model_singletask(config,
     for epoch in range(start_epoch, num_epochs):
         print(f'started epoch {epoch+1}, best_val_accuracy, {best_val_accuracy}', flush=True)
         model.train()
+        # model.eval() #debug change
         running_loss = 0.0
         total_task_correct = 0
         total_samples = 0
@@ -50,19 +51,24 @@ def train_model_singletask(config,
         class_correct = defaultdict(int)
         class_counts = defaultdict(int)
 
+        
         for imgs, masks, instrument_ids, instance_ids, task_gt_ids, mask_names in train_loader:
             imgs = imgs.to(device)
             masks = masks.to(device)
             instrument_ids = instrument_ids.to(device)
             task_gt_ids = task_gt_ids.to(device)
             
+            
+            
+            
+            
             optimizer.zero_grad()
 
             # Forward pass
-            task_preds = model(imgs, masks, instrument_ids)
+            task_logits = model(imgs, masks, instrument_ids)
 
             # Compute loss
-            loss = loss_fn(task_preds, task_gt_ids)   
+            loss = loss_fn(task_logits, task_gt_ids)   
 
             # Backward pass and optimization
             loss.backward()
@@ -70,11 +76,18 @@ def train_model_singletask(config,
             running_loss += loss.item()
             
             # Get predicted classes
-            task_preds = torch.argmax(task_preds, dim=1)
+            task_preds = torch.argmax(task_logits, dim=1)
             
             # Compute accuracy
             total_task_correct += (task_preds == task_gt_ids).sum().item()
             total_samples += imgs.size(0)
+            
+            # for i in range(min(1, len(imgs))):
+            #     print(f"Train {i} mask_name : {mask_names[i]}")
+            #     print(f"Train {i} task_gt_id,  instrument_id : {task_gt_ids[i].cpu()} {instrument_ids[i].cpu()}")
+            #     print(f"Train {i} Logits : { task_logits[i].cpu()}  ")            
+            #     print(f"Train task_preds {i}: { task_preds[i].cpu()}")            
+            #     print(f'Train total_task_correct {total_task_correct}')
             
             # Compute per-class accuracy
             for cls in torch.unique(task_gt_ids):
@@ -82,7 +95,7 @@ def train_model_singletask(config,
                 class_correct[cls] += ((task_preds == cls) & (task_gt_ids == cls)).sum().item()
                 class_counts[cls] += (task_gt_ids == cls).sum().item()
             
-            #remove  
+            
             
             
         # Compute per-class accuracy & mean accuracy
@@ -173,15 +186,25 @@ def validation_singletask(config,
             masks = masks.to(device)
             instrument_ids = instrument_ids.to(device)
             task_gt_ids = task_gt_ids.to(device)
+            
+           
 
             task_logits = model(imgs, masks, instrument_ids)
 
             # Get predicted classes
             task_preds = torch.argmax(task_logits, dim=1)
-
             # Compute accuracy
             total_task_correct += (task_preds == task_gt_ids).sum().item()
             total_samples += imgs.size(0)
+            
+            
+            # for i in range(min(1, len(imgs))):
+            #     print(f"Val {i} mask_name : {mask_names[i]}")
+            #     print(f"Val {i} task_gt_id,  instrument_id : {task_gt_ids[i].cpu()} {instrument_ids[i].cpu()}")
+            #     print(f"Val {i} Logits : { task_logits[i].cpu()}  ")            
+            #     print(f"Val task_preds {i}: { task_preds[i].cpu()}")            
+            #     print(f'Val total_task_correct {total_task_correct}')
+            
             
             # Compute per-class accuracy
             for cls in torch.unique(task_gt_ids):
@@ -336,6 +359,11 @@ def predict_with_model_parallel_fc_layers(config,
             img = img.to(device)
             mask = mask.to(device)
             instrument_id = instrument_id.to(device)
+            
+            # for i in range(min(3, len(img))):  # Limit to 3 samples for readability
+            #     print(f"Predict mask_name {i}: {mask_name[i]}")
+            #     print(f"predict ground_truth_name  {i}: {ground_truth_name[i].cpu()}")
+            #     print(f"Predict instrument_id {i}: {instrument_id[i].cpu()}")
 
             # Perform predictions
             task_logits = model(img, mask, instrument_id)
@@ -348,10 +376,12 @@ def predict_with_model_parallel_fc_layers(config,
                 local_task_id = local_task_preds[i].item()
                 gt_name = ground_truth_name[i]
                 
+                if gt_name == 'None':
+                    gt_name = None
+
+                
                 # Ground truth processing
                 if gt_name:
-                    # print(gt_name)
-                    # print(type(gt_name))
                     gt_id = int(task_name_to_task_id_dict[gt_name]) - 1
                 else: 
                     gt_id = None    

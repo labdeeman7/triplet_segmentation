@@ -1,4 +1,4 @@
-runai submit resnet-fpn-singletask-target-parrallel-fc-train-debug\
+runai submit debug-2\
   -i aicregistry:5000/talabi:mmdet \
   --gpu 1 \
   -p talabi \
@@ -6,4 +6,4 @@ runai submit resnet-fpn-singletask-target-parrallel-fc-train-debug\
   --backoff-limit 0 \
   --large-shm \
   --host-ipc \
-  --command -- bash /nfs/home/talabi/repositories/triplet_segmentation/resnet_model/scripts/triplet_segmentation_test_folder/resnet_fpn_singletask_target_parallel_fc/resnet_fpn_singletask_target_parallel_fc.sh
+  --command -- bash /nfs/home/talabi/repositories/triplet_segmentation/resnet_model/scripts/triplet_segmentation_test_folder/resnet_fpn_singletask_target_parallel_fc_train_debug/resnet_fpn_singletask_target_parallel_fc_train_debug.sh

@@ -136,6 +136,8 @@ class SurgicalSingletaskDatasetForParallelFCLayers(Dataset):
         self.class_name = 'SurgicalSingletaskDatasetForParallelFCLayers'
 
         self.ann_for_second_stage_names = os.listdir(self.ann_for_second_stage_dir) 
+        self.img_paths = os.listdir(self.img_dir) 
+        
 
         # Store instrument-specific mappings
         self.instrument_to_task_classes = config.instrument_to_task_classes
