@@ -235,7 +235,103 @@ class SurgicalMultitaskDataset(Dataset):
 
 
         return img, mask, instrument_id, instance_id, verb_id, target_id, ann_for_second_stage_name_base
-    
+
+
+
+
+class SurgicalThreetaskDatasetForParallelLayers(Dataset):
+    def __init__(self, 
+                 config,
+                 img_dir, 
+                 ann_for_second_stage_dir,
+                 transform=None,
+                 train_mode=True):
+        
+        self.img_dir = img_dir
+        self.ann_for_second_stage_dir = ann_for_second_stage_dir
+        self.transform = transform
+        self.train_mode = train_mode
+        self.class_name = 'SurgicalThreetaskDatasetForParallelLayers'
+
+        self.ann_for_second_stage_names = os.listdir(self.ann_for_second_stage_dir)  
+        self.img_paths = os.listdir(self.img_dir)  
+
+        # Instrument-specific task mappings
+        self.instrument_id_to_verb_classes = config.instrument_to_verb_classes
+        self.instrument_id_to_target_classes = config.instrument_to_target_classes
+        self.instrument_id_to_verbtarget_classes = config.instrument_to_verbtarget_classes
+        
+        self.verb_class_mappings = self._generate_task_class_mappings(self.instrument_id_to_verb_classes)
+        self.target_class_mappings = self._generate_task_class_mappings(self.instrument_id_to_target_classes )
+        self.verbtarget_class_mappings = self._generate_task_class_mappings(self.instrument_id_to_verbtarget_classes )
+        
+        print('self.verb_class_mappings', self.verb_class_mappings)
+
+    def _generate_task_class_mappings(self, instrument_id_to_task_classes):
+        """
+        Creates a mapping from (instrument, global task class) -> local task class index.
+        """
+        task_mappings = {}
+        for instr_id, valid_task_classes in instrument_id_to_task_classes.items():
+            for local_idx, global_task_id in enumerate(valid_task_classes):
+                task_mappings[(instr_id, global_task_id)] = local_idx
+        return task_mappings
+
+    def __len__(self):
+        return len(self.ann_for_second_stage_names)
+
+    def __getitem__(self, idx):
+        ann_name = self.ann_for_second_stage_names[idx]
+        ann_path = os.path.join(self.ann_for_second_stage_dir, ann_name)
+
+        # Extract components from filename
+        ann_base = ann_name.split('.')[0]
+        img_name, instrument_name, instance_id, verb_name, target_name = ann_base.split(',')
+        img_path = os.path.join(self.img_dir, f'{img_name}.png')
+
+        # Convert instrument name to instrument ID
+        instrument_id = int(INSTRUMENT_CLASS_TO_ID_DICT[instrument_name]) - 1
+
+        # Get global task IDs for verb, target, and verbtarget
+        verb_id = int(VERB_CLASS_TO_ID_DICT[verb_name]) - 1
+        target_id = int(TARGET_CLASS_TO_ID_DICT[target_name]) - 1
+        verbtarget_id = int(VERBTARGET_CLASS_TO_ID_DICT[f'{verb_name},{target_name}']) - 1
+
+        # Map global task IDs to local task IDs (if applicable)
+        verb_local_id = self.verb_class_mappings.get((instrument_id, verb_id), None)
+        target_local_id = self.target_class_mappings.get((instrument_id, target_id), None)
+        verbtarget_local_id = self.verbtarget_class_mappings.get((instrument_id, verbtarget_id), None)
+
+        # Handle missing mappings (optional: log instead of raising error)
+        if verb_local_id is None:
+            raise ValueError(f"Verb ID {verb_id} is not valid for instrument {instrument_id}")
+        if target_local_id is None:
+            raise ValueError(f"Target ID {target_id} is not valid for instrument {instrument_id}")
+        if verbtarget_local_id is None:
+            raise ValueError(f"VerbTarget ID {verbtarget_id} is not valid for instrument {instrument_id}")
+
+        # Load images & masks
+        img = Image.open(img_path).convert("RGB")  
+        mask = Image.open(ann_path).convert("L")  
+
+        if self.transform:
+            img, mask = self.transform(img, mask, self.train_mode)  
+
+        return img, mask, instrument_id, instance_id, verb_local_id, target_local_id, verbtarget_local_id, ann_base
+
+
+
+
+
+
+
+
+
+
+
+
+
+########################################################Prediction Datasets. There is only one. ##############################    
 
 class PredictionDataset(Dataset):
     def __init__(self, 
@@ -275,6 +371,11 @@ class PredictionDataset(Dataset):
                 ground_truth_name = f'{verb_name},{target_name}'
             else:
                 ground_truth_name = None    
+        elif self.task_name == 'threetask':
+            if verb_name and target_name: 
+                ground_truth_name = f'{verb_name},{target_name}'
+            else:
+                ground_truth_name = None            
         
         img_path = join(self.img_dir, f'{img_name}.png')
         instrument_id = int(INSTRUMENT_CLASS_TO_ID_DICT[instrument_name])-1

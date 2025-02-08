@@ -74,7 +74,7 @@ class MultiTaskLoss(nn.Module):
 
 class MultiTaskLossThreeTasks(nn.Module):
     def __init__(self, config):
-        super(MultiTaskLoss, self).__init__()
+        super(MultiTaskLossThreeTasks, self).__init__()
         if config.use_wce:
             assert hasattr(config, "task_class_frequencies"), 'task frequencies are required'
             
@@ -132,32 +132,26 @@ class MultiTaskLossThreeTasks(nn.Module):
             self.criterion_target = nn.CrossEntropyLoss()    
             self.criterion_verbtarget = nn.CrossEntropyLoss()
 
-    def forward(self, verbtarget_preds, verb_preds, target_preds, verbtarget_labels,  verb_labels, target_labels):
+    def forward(self, verb_preds, target_preds, verbtarget_preds, verb_labels, target_labels, verbtarget_labels):
+        
+        num_classes_verbtarg = verbtarget_preds.shape[1]  # Number of classes in verbtarg prediction
+        num_classes_verb = verb_preds.shape[1]  # Number of classes in verb prediction
+        num_classes_target = target_preds.shape[1]  # Number of classes in target prediction
+
+        # print(f"Verbtarg Classes: {num_classes_verbtarg}, Verb Classes: {num_classes_verb}, Target Classes: {num_classes_target}")
+        
+        
+        # print("Max verb label:", verb_labels.max().item(), "Expected max:", num_classes_verb - 1)
+        # print("Max target label:", target_labels.max().item(), "Expected max:", num_classes_target - 1)
+        # print("Max verbtarg label:", verbtarget_labels.max().item(), "Expected max:", num_classes_verbtarg - 1)
+
+        assert verb_labels.max().item() < num_classes_verb, "verb_gt_ids contains out-of-range class indices!"
+        assert target_labels.max().item() < num_classes_target, "target_gt_ids contains out-of-range class indices!"
+        assert verbtarget_labels.max().item() < num_classes_verbtarg, "verbtarg_gt_ids contains out-of-range class indices!"
+        
+        
         loss_verbtarget = self.criterion_verbtarget(verbtarget_preds, verbtarget_labels)
         loss_verb = self.criterion_verb(verb_preds, verb_labels)
         loss_target = self.criterion_target(target_preds, target_labels)
         return loss_verbtarget +  loss_verb + loss_target
     
-
-# def compute_multifc_loss(model, img, mask, instrument_id, task_id):
-#     """
-#     Computes loss for a batch where each instrument has a separate FC layer.
-
-#     Args:
-#         model: The SingleTaskResNetFPNForParallelFCLayers model with per-instrument FC layers.
-#         img: Tensor of shape [batch_size, 3, H, W], input images.
-#         mask: Tensor of shape [batch_size, 1, H, W], input segmentation masks.
-#         instrument_id: Tensor of shape [batch_size], indicating instrument used.
-#         task_id: Tensor of shape [batch_size], indicating local task class (verb, target, or verb_target).
-    
-#     Returns:
-#         Mean loss across the batch.
-#     """
-
-#     # Forward pass → Already applies the correct FC layer inside the model
-#     task_preds = model(img, mask, instrument_id)  
-
-#     # Compute cross-entropy loss directly on task_preds
-#     loss = F.cross_entropy(task_preds, task_id)
-
-#     return loss

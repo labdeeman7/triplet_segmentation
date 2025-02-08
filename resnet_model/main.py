@@ -8,13 +8,14 @@ import argparse
 import importlib
 import torch
 from torch.utils.data import DataLoader
-from resnet_model.dataset import SurgicalSingletaskDataset, PredictionDataset, SurgicalMultitaskDataset, SurgicalSingletaskDatasetForParallelFCLayers
+from resnet_model.dataset import SurgicalSingletaskDataset, PredictionDataset, SurgicalMultitaskDataset
+from resnet_model.dataset import SurgicalSingletaskDatasetForParallelFCLayers, SurgicalThreetaskDatasetForParallelLayers
 from loss import MultiTaskLoss, MultiTaskLossThreeTasks
 from custom_transform import CustomTransform
 from utils.general.dataset_variables import TripletSegmentationVariables
-from resnet_model.train_test_predict_loop_singletask import train_model_singletask,  predict_with_model_singletask
-from resnet_model.train_test_predict_loop_singletask import predict_with_model_parallel_fc_layers
-from resnet_model.train_test_predict_loop_multitask import train_model_multitask, test_model_multitask, predict_with_model_multitask
+from resnet_model.train_test_predict_loop_singletask import train_model_singletask,  predict_with_model_singletask, predict_with_model_parallel_fc_layers
+from resnet_model.train_test_predict_loop_threetask import train_model_threetask, predict_with_model_threetask
+from resnet_model.train_test_predict_loop_multitask import train_model_multitask,  predict_with_model_multitask
 from resnet_model.checkpoint_utils import load_checkpoint, load_checkpoint_from_latest
 from resnet_model.model_utils import get_dataset_label_ids
 
@@ -69,9 +70,11 @@ def main():
         print('class names', list(verbtarget_dict.values()))      
     elif task_name == 'standard_multitask_verb_and_target':
         num_task_class = num_verbtargets
-        print('class names', list(verbtarget_dict.values()))       
+        print('class names', list(verbtarget_dict.values()))  
+    elif task_name == 'threetask':
+        print('we are predicting verbs, targets and verbtargets. Threetasks baby!! ')                   
     else:
-        raise ValueError("We currently only accept 'verb', 'target', 'verbtarget', 'standard_multitask_verb_and_target")
+        raise ValueError("We currently only accept 'verb', 'target', 'verbtarget', 'standard_multitask_verb_and_target', 'threetask'")
 
     # Define the transformation
     transform = CustomTransform(image_size=config.image_size,
@@ -84,26 +87,24 @@ def main():
     elif  config.architecture == 'singletask_parrallel_fc':
         _SurgicalDataset = SurgicalSingletaskDatasetForParallelFCLayers
         _train_model = train_model_singletask
-        _predict_with_model = predict_with_model_parallel_fc_layers     
-        
+        _predict_with_model = predict_with_model_parallel_fc_layers 
     elif  config.architecture == 'multitask':   
         _SurgicalDataset = SurgicalMultitaskDataset
         _train_model = train_model_multitask
         _predict_with_model = predict_with_model_multitask
-         
-    elif  config.architecture == 'multitaskthreetasks':
-        pass        
+    elif  config.architecture == 'threetask_parallel_fc':
+        _SurgicalDataset = SurgicalThreetaskDatasetForParallelLayers
+        _train_model = train_model_threetask
+        _predict_with_model = predict_with_model_threetask        
     else:
-        raise ValueError("we currently only accept 'singletask', 'multitask', 'multitaskthreetasks'")      
+        raise ValueError("we currently only accept 'singletask', 'multitask', 'singletask_parrallel_fc', 'threetask_parallel_fc'")      
 
     # Datasets and DataLoaders
     train_dataset = _SurgicalDataset(config, config.train_image_dir, config.train_ann_dir, transform, train_mode=True)    
     val_dataset = _SurgicalDataset(config, config.val_image_dir, config.val_ann_dir, transform, train_mode=False)
     test_dataset = PredictionDataset(config, config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
      
-    
-    # assert train_dataset.ann_for_second_stage_names == val_dataset.ann_for_second_stage_names, "Train and validation datasets are not identical!"
-    # assert train_dataset.ann_for_second_stage_names == test_dataset.ann_for_second_stage_names, "Train and validation datasets are not identical!"
+
   
 
     # Get class_name to id. 
@@ -114,7 +115,9 @@ def main():
     elif task_name == 'verbtarget':
         class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()}   
     elif task_name == 'standard_multitask_verb_and_target':   
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()}        
+        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()}   
+    elif task_name ==  'threetask':
+        pass        
     else:
         raise ValueError("We currently only accept 'verb', 'target', 'verbtarget', 'verbtarget_multitask' or 'triplet'")
     
@@ -143,41 +146,32 @@ def main():
         _loss_fn = nn.CrossEntropyLoss()           
     elif config.architecture == 'multitask':               
         _loss_fn = MultiTaskLoss(config)
-    elif  config.architecture == 'multitaskthreetasks':               
+    elif  config.architecture == 'threetask_parallel_fc':               
         _loss_fn = MultiTaskLossThreeTasks(config)    
     else:
-        raise ValueError("we currently only accept 'singletask', 'multitask', 'multitaskthreetasks'")      
+        raise ValueError("we currently only accept 'singletask', 'multitask', 'singletask_parrallel_fc', 'threetask_parallel_fc'")      
 
     train_loader = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=config.batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False)
 
-    # Initialize Model, Loss, Optimizer  
-    if task_name == 'verb':
-        num_task_class = num_verbs
-    elif task_name == 'target':
-        num_task_class = num_targets
-    elif task_name == 'verbtarget':
-        num_task_class = num_verbtargets
-    elif task_name == 'standard_multitask_verb_and_target':
-        num_task_class = num_verbtargets  
-    else:
-        raise ValueError("We currently only accept 'verb', 'target', or 'verbtarget'.")
-    
+    # Initialize Model, Loss, Optimizer 
     if config.architecture == 'singletask':
         model = model_class(num_instruments, num_task_class)
     elif config.architecture == 'singletask_parrallel_fc':
         model = model_class(num_instruments, config.instrument_to_task_classes)    
     elif config.architecture == 'multitask':   
         model = model_class(num_instruments, num_verbs, num_targets) 
-    elif config.architecture == 'multitaskthreetasks':   
-        model = model_class(num_instruments, num_verbs, num_targets, num_verbtargets)     
+    elif config.architecture == 'threetask_parallel_fc':   
+        model = model_class(config.instrument_to_verb_classes, 
+                            config.instrument_to_target_classes, 
+                            config.instrument_to_verbtarget_classes,)     
         
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
 
     # Resume training from checkpoint if provided
     start_epoch = 0
-    best_val_accuracy = 0.0
+    best_val_accuracy = -1.0
     
     #allow for resumption
     if config.allow_resume:
@@ -222,7 +216,7 @@ def main():
             config=config,
             model=model,
             dataloader=test_loader,
-            device='cuda',
+            device='cpu',
             store_results=True,
             verbose=True,
         )

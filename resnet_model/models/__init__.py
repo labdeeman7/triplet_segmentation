@@ -6,7 +6,9 @@ from .multitask_resnet_fpn_transformer_decoder import MultiTaskResNetFPNTransfor
 from .singletask_resnet_fpn_parrallel_fc_layers import SingleTaskResNetFPNForParallelFCLayers
 from .singletask_resnet_fpn import SingleTaskResNetFPN
 from .singletask_resnet_fpn_parrallel_fc_layers_wit_decoder import SingleTaskResNetFPNWithTransformersAndParrallelFCLayers 
+from .threetask_resnet_fpn_parrallel_fc_layers_with_decoder import ThreeTaskResNetFPNWithParralellTransformerDecoders
 # from .another_model import AnotherModel
 
 __all__ = ['MultiTaskResNet', 'MultiTaskResNetFPN', 'MultiTaskResNetFPNTransformerDecoder',
-           'SingleTaskResNetFPN', 'SingleTaskResNetFPNForParallelFCLayers', 'SingleTaskResNetFPNWithTransformersAndParrallelFCLayers']
+           'SingleTaskResNetFPN', 'SingleTaskResNetFPNForParallelFCLayers', 'SingleTaskResNetFPNWithTransformersAndParrallelFCLayers',
+           'ThreeTaskResNetFPNWithParralellTransformerDecoders']

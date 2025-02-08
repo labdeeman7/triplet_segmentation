@@ -25,14 +25,14 @@ class CustomTransform:
             #     mask = F.crop(mask, i, j, h, w)
 
             # Random horizontal flip
-            # if random.random() > 0.5:
-            #     img = F.hflip(img)
-            #     mask = F.hflip(mask)
+            if random.random() > 0.5:
+                img = F.hflip(img)
+                mask = F.hflip(mask)
 
             # Random vertical flip
-            # if random.random() > 0.5:
-            #     img = F.vflip(img)
-            #     mask = F.vflip(mask)
+            if random.random() > 0.5:
+                img = F.vflip(img)
+                mask = F.vflip(mask)
 
             # Random brightness and contrast adjustments
             if random.random() > 0.5:
