@@ -4,6 +4,8 @@ wandb/
 
 .tripletsegmentation/
 
+.evaluate/
+
 outputs/
 
 # my_mmdetection/

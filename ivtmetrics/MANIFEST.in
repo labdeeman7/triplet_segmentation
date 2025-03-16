@@ -1,4 +1,0 @@
-include README.md
-include README.rst
-include ivtmetrics/maps.txt
-recursive-include data *

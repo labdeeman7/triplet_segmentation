@@ -131,11 +131,11 @@ def plot_instance_from_json_contour(contours_list: list,
         #plot the contours
         label_name = '' 
         
-        # if class_names:
-        #     label_name = f'{class_names[i]}'
+        if class_names:
+            label_name = f'{class_names[i]}'
         
-        # if verb_names:
-        #     label_name =  f'{label_name}-{verb_names[i]}'   
+        if verb_names:
+            label_name =  f'{label_name}-{verb_names[i]}'   
         
         if target_names:
             label_name =  f'{label_name}-{target_names[i]}'       
