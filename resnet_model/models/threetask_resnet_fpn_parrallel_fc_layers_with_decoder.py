@@ -6,6 +6,7 @@ from collections import OrderedDict
 
 class ThreeTaskResNetFPNWithParralellTransformerDecoders(nn.Module):
     def __init__(self, 
+                 config,
                  instrument_to_verb_classes, 
                  instrument_to_target_classes, 
                  instrument_to_verbtarget_classes, 
@@ -15,7 +16,6 @@ class ThreeTaskResNetFPNWithParralellTransformerDecoders(nn.Module):
         super(ThreeTaskResNetFPNWithParralellTransformerDecoders, self).__init__()
 
         self.num_instruments = len(instrument_to_verb_classes)  # Number of instruments
-
         # ResNet Backbone
         self.resnet = models.resnet50(pretrained=True)
         original_conv1 = self.resnet.conv1
@@ -38,12 +38,16 @@ class ThreeTaskResNetFPNWithParralellTransformerDecoders(nn.Module):
         # Feature Pyramid Network (FPN)
         self.fpn = FeaturePyramidNetwork([256, 512, 1024, 2048], 256)
 
-        # Mask Downsampling
+        # Assuming model_input_size is (H, W)
+        self.model_input_size = config.model_input_size  # (256, 448)
+
+        # Compute the downsampled sizes dynamically
+        H, W = self.model_input_size
         self.mask_downsamplers = nn.ModuleDict({
-            "layer1": nn.AdaptiveAvgPool2d((56, 56)),
-            "layer2": nn.AdaptiveAvgPool2d((28, 28)),
-            "layer3": nn.AdaptiveAvgPool2d((14, 14)),
-            "layer4": nn.AdaptiveAvgPool2d((7, 7)),
+            "layer1": nn.AdaptiveAvgPool2d((H // 4, W // 4)),
+            "layer2": nn.AdaptiveAvgPool2d((H // 8, W // 8)),
+            "layer3": nn.AdaptiveAvgPool2d((H // 16, W // 16)),
+            "layer4": nn.AdaptiveAvgPool2d((H // 32, W // 32)),
         })
 
         self.global_pool = nn.AdaptiveAvgPool2d(1)

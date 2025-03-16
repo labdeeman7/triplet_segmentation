@@ -112,7 +112,7 @@ def save_visualization(img, mask, prediction_name, ground_truth_name, save_path,
     # Save the visualization
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     blended.save(save_path)
-    print(f"Saved visualization to {save_path}")
+    # print(f"Saved visualization to {save_path}")
 
 
 

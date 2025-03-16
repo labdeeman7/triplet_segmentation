@@ -1,4 +1,4 @@
-runai submit predict-checkpoint\
+runai submit predict-only\
   -i aicregistry:5000/talabi:mmdet \
   --gpu 1 \
   -p talabi \

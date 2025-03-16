@@ -302,11 +302,11 @@ def predict_with_model_threetask(config,
                     ("verbtarget", verbtarg_global_id, verbtarg_gt_id, verbtarg_gt, verbtarg_logits[i], vis_dirs["verbtarget"], verbtarg_id_to_name),
                 ]:
                     
-                    prediction_name = f"Prediction: {pred_id} {id_to_name[str(pred_id + 1)]}"
-                    ground_truth_text = f"GT: {gt_id} {gt_name}" if gt_name else None
-                    save_path = os.path.join(vis_folder, f"{mask_name[i]}.png")
+                    # prediction_name = f"Prediction: {pred_id} {id_to_name[str(pred_id + 1)]}"
+                    # ground_truth_text = f"GT: {gt_id} {gt_name}" if gt_name else None
+                    # save_path = os.path.join(vis_folder, f"{mask_name[i]}.png")
 
-                    save_visualization(img[i].cpu(), mask[i].cpu(), prediction_name, ground_truth_text, save_path)
+                    # save_visualization(img[i].cpu(), mask[i].cpu(), prediction_name, ground_truth_text, save_path)
 
                     # Accuracy Calculation
                     if gt_name:

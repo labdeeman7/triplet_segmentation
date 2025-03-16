@@ -163,7 +163,8 @@ def main():
     elif config.architecture == 'multitask':   
         model = model_class(num_instruments, num_verbs, num_targets) 
     elif config.architecture == 'threetask_parallel_fc':   
-        model = model_class(config.instrument_to_verb_classes, 
+        model = model_class(config,
+                            config.instrument_to_verb_classes, 
                             config.instrument_to_target_classes, 
                             config.instrument_to_verbtarget_classes,)     
         

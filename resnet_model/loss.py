@@ -131,27 +131,33 @@ class MultiTaskLossThreeTasks(nn.Module):
             self.criterion_verb = nn.CrossEntropyLoss()
             self.criterion_target = nn.CrossEntropyLoss()    
             self.criterion_verbtarget = nn.CrossEntropyLoss()
+            
+            self.verb_multitask_weight = 1.0 if not hasattr(config, "verb_multitask_weight") else config.verb_multitask_weight
+            self.target_multitask_weight = 1.0 if not hasattr(config, "target_multitask_weight") else config.target_multitask_weight
+            self.verbtarget_multitask_weight = 1.0 if not hasattr(config, "verbtarget_multitask_weight") else config.verbtarget_multitask_weight
+            
 
     def forward(self, verb_preds, target_preds, verbtarget_preds, verb_labels, target_labels, verbtarget_labels):
         
-        num_classes_verbtarg = verbtarget_preds.shape[1]  # Number of classes in verbtarg prediction
-        num_classes_verb = verb_preds.shape[1]  # Number of classes in verb prediction
-        num_classes_target = target_preds.shape[1]  # Number of classes in target prediction
+        # num_classes_verbtarg = verbtarget_preds.shape[1]  # Number of classes in verbtarg prediction
+        # num_classes_verb = verb_preds.shape[1]  # Number of classes in verb prediction
+        # num_classes_target = target_preds.shape[1]  # Number of classes in target prediction
 
-        # print(f"Verbtarg Classes: {num_classes_verbtarg}, Verb Classes: {num_classes_verb}, Target Classes: {num_classes_target}")
+        # # print(f"Verbtarg Classes: {num_classes_verbtarg}, Verb Classes: {num_classes_verb}, Target Classes: {num_classes_target}")
         
         
-        # print("Max verb label:", verb_labels.max().item(), "Expected max:", num_classes_verb - 1)
-        # print("Max target label:", target_labels.max().item(), "Expected max:", num_classes_target - 1)
-        # print("Max verbtarg label:", verbtarget_labels.max().item(), "Expected max:", num_classes_verbtarg - 1)
+        # # print("Max verb label:", verb_labels.max().item(), "Expected max:", num_classes_verb - 1)
+        # # print("Max target label:", target_labels.max().item(), "Expected max:", num_classes_target - 1)
+        # # print("Max verbtarg label:", verbtarget_labels.max().item(), "Expected max:", num_classes_verbtarg - 1)
 
-        assert verb_labels.max().item() < num_classes_verb, "verb_gt_ids contains out-of-range class indices!"
-        assert target_labels.max().item() < num_classes_target, "target_gt_ids contains out-of-range class indices!"
-        assert verbtarget_labels.max().item() < num_classes_verbtarg, "verbtarg_gt_ids contains out-of-range class indices!"
+        # # assert verb_labels.max().item() < num_classes_verb, "verb_gt_ids contains out-of-range class indices!"
+        # # assert target_labels.max().item() < num_classes_target, "target_gt_ids contains out-of-range class indices!"
+        # # assert verbtarget_labels.max().item() < num_classes_verbtarg, "verbtarg_gt_ids contains out-of-range class indices!"
         
         
-        loss_verbtarget = self.criterion_verbtarget(verbtarget_preds, verbtarget_labels)
         loss_verb = self.criterion_verb(verb_preds, verb_labels)
         loss_target = self.criterion_target(target_preds, target_labels)
-        return loss_verbtarget +  loss_verb + loss_target
+        loss_verbtarget = self.criterion_verbtarget(verbtarget_preds, verbtarget_labels)
+        
+        return (self.verb_multitask_weight*loss_verb) + (self.target_multitask_weight*loss_target) + (self.verbtarget_multitask_weight*loss_verbtarget)  
     
