@@ -7,11 +7,13 @@ from os.path import join
 from PIL import Image
 from utils.general.dataset_variables import TripletSegmentationVariables
 from torchvision.transforms import functional as TF
+from utils.general.read_files import read_from_json
 
 INSTRUMENT_ID_TO_CLASS_DICT = TripletSegmentationVariables.categories['instrument']
 VERB_ID_TO_CLASS_DICT = TripletSegmentationVariables.categories['verb']
 TARGET_ID_TO_CLASS_DICT = TripletSegmentationVariables.categories['target']
 VERBTARGET_ID_TO_CLASS_DICT = TripletSegmentationVariables.categories['verbtarget']
+INSTRUMENTVERBTARGET_ID_TO_CLASS_DICT = TripletSegmentationVariables.categories['triplet']
 
 INSTRUMENT_CLASS_TO_ID_DICT = {instrument_class: instrument_id for instrument_id, instrument_class in INSTRUMENT_ID_TO_CLASS_DICT.items()}
 VERB_CLASS_TO_ID_DICT = {verb_class: verb_id for verb_id, verb_class in VERB_ID_TO_CLASS_DICT.items()}
@@ -238,7 +240,6 @@ class SurgicalMultitaskDataset(Dataset):
 
 
 
-
 class SurgicalThreetaskDatasetForParallelLayers(Dataset):
     def __init__(self, 
                  config,
@@ -321,7 +322,69 @@ class SurgicalThreetaskDatasetForParallelLayers(Dataset):
 
 
 
+class SurgicalThreetaskDatasetForMoEParallelTransformerDecoders(Dataset):
+    def __init__(self, 
+                 config,
+                 img_dir, 
+                 detector_softmax_scores_json,
+                 ann_for_second_stage_dir,
+                 transform=None,
+                 train_mode=True):
+        
+        self.img_dir = img_dir
+        self.ann_for_second_stage_dir = ann_for_second_stage_dir
+        self.transform = transform
+        self.train_mode = train_mode
+        self.class_name = 'SurgicalThreetaskDatasetForMoEParallelTransformerDecoders'
 
+        self.ann_for_second_stage_names = os.listdir(self.ann_for_second_stage_dir)  
+        self.img_paths = os.listdir(self.img_dir)  
+        self.detector_softmax_scores = read_from_json(detector_softmax_scores_json) #for training
+        
+
+    def _generate_task_class_mappings(self, instrument_id_to_task_classes):
+        """
+        Creates a mapping from (instrument, global task class) -> local task class index.
+        """
+        task_mappings = {}
+        for instr_id, valid_task_classes in instrument_id_to_task_classes.items():
+            for local_idx, global_task_id in enumerate(valid_task_classes):
+                task_mappings[(instr_id, global_task_id)] = local_idx
+        return task_mappings
+
+    def __len__(self):
+        return len(self.ann_for_second_stage_names)
+
+    def __getitem__(self, idx):
+        ann_name = self.ann_for_second_stage_names[idx]
+        ann_path = os.path.join(self.ann_for_second_stage_dir, ann_name)
+
+        # Extract groundtruth components from filename
+        ann_base = ann_name.split('.')[0]
+        img_name, instrument_name, gt_instance_id, verb_name, target_name = ann_base.split(',')
+        img_path = os.path.join(self.img_dir, f'{img_name}.png')
+        
+        # Extract predicted detector softmax score. 
+        instrument_detection_softmax_score = torch.tensor(self.detector_softmax_scores[img_name])
+
+        # Convert instrument name to instrument ID
+        gt_instrument_id = int(INSTRUMENT_CLASS_TO_ID_DICT[instrument_name]) - 1
+
+        # Get global task IDs for verb, target, and verbtarget
+        gt_verb_id = int(VERB_CLASS_TO_ID_DICT[verb_name]) - 1
+        gt_target_id = int(TARGET_CLASS_TO_ID_DICT[target_name]) - 1
+        gt_verbtarget_id = int(VERBTARGET_CLASS_TO_ID_DICT[f'{verb_name},{target_name}']) - 1
+        gt_instrumentverbtarget_id = int(INSTRUMENTVERBTARGET_ID_TO_CLASS_DICT[f'{verb_name},{target_name}']) - 1
+
+        
+        # Load images & masks
+        img = Image.open(img_path).convert("RGB")  
+        mask = Image.open(ann_path).convert("L")  
+
+        if self.transform:
+            img, mask = self.transform(img, mask, self.train_mode)  
+
+        return img, mask, ann_base, gt_instance_id, gt_instrument_id, gt_verb_id, gt_target_id, gt_verbtarget_id, gt_instrumentverbtarget_id
 
 
 
@@ -391,4 +454,67 @@ class PredictionDataset(Dataset):
     
     
 
+class PredictionDatasetSofmaxInputs(Dataset):
+    def __init__(self, 
+                 config,
+                 img_dir, 
+                 ann_for_second_stage_dir,
+                 detector_softmax_scores_json,
+                 transform=None,
+                 train_mode=True ):
+        # Supposed to handle prediction mainly. 
+        self.img_dir = img_dir
+        self.ann_for_second_stage_dir = ann_for_second_stage_dir
+        self.transform = transform
+        self.train_mode = train_mode
+        self.class_name = 'PredictionDataset'
+        self.task_name = config.task_name
+        
+        self.ann_for_second_stage_names = os.listdir(self.ann_for_second_stage_dir) 
+        self.img_paths = os.listdir(self.img_dir)         
+        self.detector_softmax_scores = read_from_json(detector_softmax_scores_json) #for training
+        
+    def __len__(self):
+        return len(self.ann_for_second_stage_names)
+
+    def __getitem__(self, idx):
+        # Get mask file name
+        ann_for_second_stage_name = self.ann_for_second_stage_names[idx]
+        ann_for_second_stage_path = join(self.ann_for_second_stage_dir, 
+                                         ann_for_second_stage_name)
+ 
+        ann_for_second_stage_name_base = ann_for_second_stage_name.split('.')[0]
+        img_name, instrument_name, instance_id, verb_name, target_name = ann_for_second_stage_name_base.split(',')
+        
+        if self.task_name == 'verb':
+            ground_truth_name = verb_name
+        elif self.task_name == 'target':
+            ground_truth_name = target_name 
+        elif self.task_name == 'verbtarget':
+            if verb_name and target_name: 
+                ground_truth_name = f'{verb_name},{target_name}'
+            else:
+                ground_truth_name = None    
+        elif self.task_name == 'threetask':
+            if verb_name and target_name: 
+                ground_truth_name = f'{verb_name},{target_name}'
+            else:
+                ground_truth_name = None
+        
+                                
+        
+        img_path = join(self.img_dir, f'{img_name}.png')
+        instrument_id = int(INSTRUMENT_CLASS_TO_ID_DICT[instrument_name])-1
+                
+        img = Image.open(img_path).convert("RGB")  # Use PIL for transformations
+        mask = Image.open(ann_for_second_stage_path).convert("L")  # Load mask as grayscale
+        
+        # Extract predicted detector softmax score from first stage model. 
+        instrument_detection_softmax_score = self.detector_softmax_scores[img_name] 
+        
+        if self.transform:
+            img, mask = self.transform(img, mask, self.train_mode)  # Apply custom transformation
+
+
+        return img, mask, instrument_detection_softmax_score, instance_id, ann_for_second_stage_name_base, ground_truth_name  
     
