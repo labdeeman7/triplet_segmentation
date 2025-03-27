@@ -107,13 +107,13 @@ class Recognition(Disentangle):
             mean AP performance
         """
         if component in ["ivt", "it", "iv", "t", "v", "i"]:
-            targets  = self.extract(self.targets, component) 
+            targets  = self.extract(self.targets, component)
             predicts = self.extract(self.predictions, component)
         else:
             sys.exit(f"Function filtering {component} not supported yet!")
         with warnings.catch_warnings():
             warnings.filterwarnings(action='ignore', message='Mean of empty slice')            
-            classwise = average_precision_score(targets, predicts, average=None)  # I think this is where the problem is. 
+            classwise = average_precision_score(targets, predicts, average=None)
             if (ignore_null and component=="ivt"): classwise = classwise[:-6]
             mean      = np.nanmean(classwise)
         return {"AP":classwise, "mAP":mean}

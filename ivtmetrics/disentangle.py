@@ -4,7 +4,7 @@
 An python implementation triplet component filtering .
 Created on Thu Dec 30 12:37:56 2021
 @author: nwoye chinedu i.
-(c) camma, icube, unistra
+icube, unistra
 """
 #%%%%%%%% imports %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 import numpy as np
@@ -26,7 +26,7 @@ class Disentangle(object):
         call filter a component labels from the inputs labels     
     """
 
-    def __init__(self, url="maps.txt"):
+    def __init__(self, url="maps.py"):
         self.bank = self.map_file()
 #        self.bank = np.genfromtxt(url, dtype=int, comments='#', delimiter=',', skip_header=0)
         
@@ -77,9 +77,7 @@ class Disentangle(object):
             return np.array(list(map(self.decompose, inputs, component)))
 
     def map_file(self):
-        # IVT, I, V, T, IV, IT
-        return np.array([ 
-                       [ 0,  0,  2,  1,  2,  1],
+        return np.array([ [ 0,  0,  2,  1,  2,  1],
                        [ 1,  0,  2,  0,  2,  0],
                        [ 2,  0,  2, 10,  2, 10],
                        [ 3,  0,  0,  3,  0,  3],
@@ -178,5 +176,4 @@ class Disentangle(object):
                        [96,  2,  9, 14, 29, 44],
                        [97,  3,  9, 14, 39, 59],
                        [98,  4,  9, 14, 49, 74],
-                       [99,  5,  9, 14, 59, 89]
-                       ])
+                       [99,  5,  9, 14, 59, 89]])

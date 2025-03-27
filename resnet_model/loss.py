@@ -95,3 +95,37 @@ class MultiTaskLossThreeTasks(nn.Module):
         
         return (self.verb_multitask_weight*loss_verb) + (self.target_multitask_weight*loss_target) + (self.verbtarget_multitask_weight*loss_verbtarget)  
     
+
+
+class MultiTaskLossFourTasks(nn.Module):
+    def __init__(self, config):
+        super(MultiTaskLossFourTasks, self).__init__()
+        if config.use_wce:
+            pass
+        else:
+            self.criterion_verb = nn.CrossEntropyLoss()
+            self.criterion_target = nn.CrossEntropyLoss()    
+            self.criterion_verbtarget = nn.CrossEntropyLoss()
+            self.criterion_ivt = nn.CrossEntropyLoss()
+            
+            
+            self.verb_multitask_weight = 1.0 if not hasattr(config, "verb_multitask_weight") else config.verb_multitask_weight
+            self.target_multitask_weight = 1.0 if not hasattr(config, "target_multitask_weight") else config.target_multitask_weight
+            self.verbtarget_multitask_weight = 1.0 if not hasattr(config, "verbtarget_multitask_weight") else config.verbtarget_multitask_weight
+            self.ivt_multitask_weight = 1.0 if not hasattr(config, "ivt_multitask_weight") else config.verbtarget_multitask_weight
+            
+
+    def forward(self, verb_preds, target_preds, verbtarget_preds, ivt_preds, verb_labels, target_labels, verbtarget_labels, ivt_labels):
+        
+        loss_verb = self.criterion_verb(verb_preds, verb_labels)
+        loss_target = self.criterion_target(target_preds, target_labels)
+        loss_verbtarget = self.criterion_verbtarget(verbtarget_preds, verbtarget_labels)
+        loss_ivt = self.criterion_ivt(ivt_preds, ivt_labels)
+        
+        total_loss = (self.verb_multitask_weight*loss_verb) + (self.target_multitask_weight*loss_target) + (self.verbtarget_multitask_weight*loss_verbtarget) + (self.ivt_multitask_weight*loss_ivt)
+        
+        return  total_loss, {"loss_verb": loss_verb.item(),
+                            "loss_target": loss_target.item(),
+                            "loss_verbtarget": loss_verbtarget.item(),
+                            "loss_ivt": loss_ivt.item() }     
+    

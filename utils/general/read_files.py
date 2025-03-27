@@ -1,8 +1,9 @@
-import cv2
+
 import json
 import numpy as np
 
 def read_image(image_path, mode='RGB'):
+    import cv2
     """
     Read an image from the specified path.
 

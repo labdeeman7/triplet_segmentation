@@ -8,16 +8,28 @@ import argparse
 import importlib
 import torch
 from torch.utils.data import DataLoader
+
 from resnet_model.dataset import SurgicalSingletaskDataset, PredictionDataset, SurgicalMultitaskDataset
 from resnet_model.dataset import SurgicalSingletaskDatasetForParallelFCLayers, SurgicalThreetaskDatasetForParallelLayers
-from loss import MultiTaskLoss, MultiTaskLossThreeTasks
+from resnet_model.dataset import SurgicalFourTaskDatasetWithDetectorLogits, PredictionDatasetSofmaxInputs
+
 from custom_transform import CustomTransform
+
+from loss import MultiTaskLoss, MultiTaskLossThreeTasks, MultiTaskLossFourTasks
+
+
 from utils.general.dataset_variables import TripletSegmentationVariables
+from resnet_model.model_utils import get_dataset_label_ids
+from resnet_model.checkpoint_utils import load_checkpoint, load_checkpoint_from_latest
+
+
 from resnet_model.train_test_predict_loop_singletask import train_model_singletask,  predict_with_model_singletask, predict_with_model_parallel_fc_layers
 from resnet_model.train_test_predict_loop_threetask import train_model_threetask, predict_with_model_threetask
-from resnet_model.train_test_predict_loop_multitask import train_model_multitask,  predict_with_model_multitask
-from resnet_model.checkpoint_utils import load_checkpoint, load_checkpoint_from_latest
-from resnet_model.model_utils import get_dataset_label_ids
+from resnet_model.train_test_predict_loop_two_task import train_model_multitask,  predict_with_model_multitask
+from resnet_model.train_test_predict_loop_four_task import train_model_fourtask,  predict_with_model_fourtask
+
+
+
 
 
 def main():
@@ -46,7 +58,7 @@ def main():
     num_verbs = TripletSegmentationVariables.num_verbs
     num_targets = TripletSegmentationVariables.num_targets
     num_verbtargets = TripletSegmentationVariables.num_verbtargets
-    num_triplets = TripletSegmentationVariables.num_verbtargets    
+    num_triplets = TripletSegmentationVariables.num_triplets    
    
     
     instrument_dict = TripletSegmentationVariables.categories['instrument']
@@ -72,7 +84,9 @@ def main():
         num_task_class = num_verbtargets
         print('class names', list(verbtarget_dict.values()))  
     elif task_name == 'threetask':
-        print('we are predicting verbs, targets and verbtargets. Threetasks baby!! ')                   
+        print('we are predicting verbs, targets and verbtargets. Threetasks!! ')   
+    elif task_name == 'fourtask_moe':
+        print('we are predicting verbs, targets verbtargets and ivt. fourtasks!! ')                       
     else:
         raise ValueError("We currently only accept 'verb', 'target', 'verbtarget', 'standard_multitask_verb_and_target', 'threetask'")
 
@@ -95,17 +109,29 @@ def main():
     elif  config.architecture == 'threetask_parallel_fc':
         _SurgicalDataset = SurgicalThreetaskDatasetForParallelLayers
         _train_model = train_model_threetask
-        _predict_with_model = predict_with_model_threetask        
+        _predict_with_model = predict_with_model_threetask    
+    elif config.architecture == 'fourtask_moe':
+        _SurgicalDataset = SurgicalFourTaskDatasetWithDetectorLogits
+        _train_model = train_model_fourtask
+        _predict_with_model = predict_with_model_fourtask        
     else:
         raise ValueError("we currently only accept 'singletask', 'multitask', 'singletask_parrallel_fc', 'threetask_parallel_fc'")      
 
     # Datasets and DataLoaders
     train_dataset = _SurgicalDataset(config, config.train_image_dir, config.train_ann_dir, transform, train_mode=True)    
     val_dataset = _SurgicalDataset(config, config.val_image_dir, config.val_ann_dir, transform, train_mode=False)
-    test_dataset = PredictionDataset(config, config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
-     
+    if config.architecture == 'fourtask_moe':
+        test_dataset = PredictionDatasetSofmaxInputs(
+            config,
+            config.test_image_dir,
+            config.test_ann_dir,
+            config.detector_softmax_scores_json,
+            transform,
+            train_mode=False
+        )
+    else:
+        test_dataset = PredictionDataset(config, config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
 
-  
 
     # Get class_name to id. 
     if task_name == 'verb':
@@ -116,7 +142,9 @@ def main():
         class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()}   
     elif task_name == 'standard_multitask_verb_and_target':   
         class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()}   
-    elif task_name ==  'threetask':
+    elif task_name == 'threetask':
+        pass    
+    elif task_name == 'fourtask_moe':
         pass        
     else:
         raise ValueError("We currently only accept 'verb', 'target', 'verbtarget', 'verbtarget_multitask' or 'triplet'")
@@ -148,6 +176,8 @@ def main():
         _loss_fn = MultiTaskLoss(config)
     elif  config.architecture == 'threetask_parallel_fc':               
         _loss_fn = MultiTaskLossThreeTasks(config)    
+    elif  config.architecture == 'fourtask_moe':               
+        _loss_fn = MultiTaskLossFourTasks(config)   
     else:
         raise ValueError("we currently only accept 'singletask', 'multitask', 'singletask_parrallel_fc', 'threetask_parallel_fc'")      
 
@@ -166,7 +196,18 @@ def main():
         model = model_class(config,
                             config.instrument_to_verb_classes, 
                             config.instrument_to_target_classes, 
-                            config.instrument_to_verbtarget_classes,)     
+                            config.instrument_to_verbtarget_classes,)  
+    elif config.architecture == 'fourtask_moe':
+        model = model_class(config,
+                            config.instrument_to_verb_classes,
+                            config.instrument_to_target_classes,
+                            config.instrument_to_verbtarget_classes,
+                            config.instrument_to_triplet_classes,
+                            num_instruments=num_instruments,
+                            num_verbs=num_verbs,
+                            num_targets=num_targets,
+                            num_verbtargets=num_verbtargets,
+                            num_triplets=num_triplets)       
         
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
 
