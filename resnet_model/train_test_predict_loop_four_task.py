@@ -255,7 +255,7 @@ def predict_with_model_fourtask(config,
     verb_id_to_name = TripletSegmentationVariables.categories['verb']
     target_id_to_name = TripletSegmentationVariables.categories['target']
     verbtarg_id_to_name = TripletSegmentationVariables.categories['verbtarget']
-    ivt_id_to_name = TripletSegmentationVariables.categories['instrumentverbtarget']
+    ivt_id_to_name = TripletSegmentationVariables.categories['triplet']
 
     # Initialize accuracy tracking
     total_correct = {"verb": 0, "target": 0, "verbtarget": 0, "ivt": 0}
@@ -291,7 +291,7 @@ def predict_with_model_fourtask(config,
                     ("verbtarget", verbtarg_preds[i].item(), verbtarg_logits[i], verbtarg_id_to_name),
                     ("ivt", ivt_preds[i].item(), ivt_logits[i], ivt_id_to_name),
                 ]:
-                    # Accuracy
+                    # No need for a visualization?
                     
                     # Save prediction
                     results.setdefault(mask_base_name, {})[task] = pred

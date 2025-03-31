@@ -8,7 +8,7 @@ from utils.general.dataset_variables import TripletSegmentationVariables
 # Hyperparameters
 # ---------------------- Hyperparameters ----------------------
 batch_size = 64
-num_epochs = 1
+num_epochs = 20
 # batch_size = 1
 # num_epochs = 1
 learning_rate = 0.0005
