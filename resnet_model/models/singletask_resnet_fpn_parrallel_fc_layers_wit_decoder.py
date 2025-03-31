@@ -6,11 +6,12 @@ from collections import OrderedDict
 
 class SingleTaskResNetFPNWithTransformersAndParrallelFCLayers(nn.Module):
     def __init__(self, 
+                 config,
                  num_instruments,
                  instrument_to_task_classes,
                  embed_dim=64,
                  decoder_hidden_dim=256,
-                 num_decoder_layers=4):
+                 num_decoder_layers=2):
         super(SingleTaskResNetFPNWithTransformersAndParrallelFCLayers, self).__init__()
 
         # ResNet Backbone with 4-channel input
@@ -39,12 +40,16 @@ class SingleTaskResNetFPNWithTransformersAndParrallelFCLayers(nn.Module):
         # Feature Pyramid Network
         self.fpn = FeaturePyramidNetwork([256, 512, 1024, 2048], 256)
 
-        # Downsampling masks for each FPN level
+         # Assuming model_input_size is (H, W)
+        self.model_input_size = config.model_input_size  # (256, 448)
+
+        # Compute the downsampled sizes dynamically
+        H, W = self.model_input_size
         self.mask_downsamplers = nn.ModuleDict({
-            "layer1": nn.AdaptiveAvgPool2d((56, 56)),
-            "layer2": nn.AdaptiveAvgPool2d((28, 28)),
-            "layer3": nn.AdaptiveAvgPool2d((14, 14)),
-            "layer4": nn.AdaptiveAvgPool2d((7, 7)),
+            "layer1": nn.AdaptiveAvgPool2d((H // 4, W // 4)),
+            "layer2": nn.AdaptiveAvgPool2d((H // 8, W // 8)),
+            "layer3": nn.AdaptiveAvgPool2d((H // 16, W // 16)),
+            "layer4": nn.AdaptiveAvgPool2d((H // 32, W // 32)),
         })
 
         # Global pooling
@@ -77,7 +82,6 @@ class SingleTaskResNetFPNWithTransformersAndParrallelFCLayers(nn.Module):
             str(instr_id): nn.Sequential(
                 nn.Linear(decoder_hidden_dim, 256),
                 nn.ReLU(),
-                nn.Dropout(0.2),
                 nn.Linear(256, len(local_task_classes))
             )
             for instr_id, local_task_classes in instrument_to_task_classes.items()

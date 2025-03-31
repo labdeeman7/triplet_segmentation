@@ -133,7 +133,7 @@ def main():
         test_dataset = PredictionDataset(config, config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
 
 
-    # Get class_name to id. 
+    # Get class_name to id.  for wce. 
     if task_name == 'verb':
         class_to_idx_zero_index = {value: int(key)-1 for key, value in verb_dict.items()}  
     elif task_name == 'target':
@@ -189,7 +189,7 @@ def main():
     if config.architecture == 'singletask':
         model = model_class(num_instruments, num_task_class)
     elif config.architecture == 'singletask_parrallel_fc':
-        model = model_class(num_instruments, config.instrument_to_task_classes)    
+        model = model_class(config, num_instruments, config.instrument_to_task_classes)    
     elif config.architecture == 'multitask':   
         model = model_class(num_instruments, num_verbs, num_targets) 
     elif config.architecture == 'threetask_parallel_fc':   

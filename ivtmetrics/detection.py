@@ -237,7 +237,7 @@ class Detection(Recognition):
         #x format for a single frame: list(list): each list = [tripletID, toolID, toolProbs, x, y, w, h] bbox is scaled (0..1)
         
         assert isinstance(x[0], list), "Each frame must be a list of lists, each list a prediction of triplet and object locations"     
-        print(x)   
+        # print(x)   
         if len(x[0]):
             x = np.stack(x, axis=0)
             x = x[x[:,2].argsort()[::-1]]
@@ -251,7 +251,7 @@ class Detection(Recognition):
         
     def dict2stack(self, x):
         #x format for a single frame: list(dict): each dict = {"triplet":ID, "instrument": [ID, Probs, x, y, w, h]} bbox is scaled (0..1)
-        print(x)
+        # print(x)
         assert isinstance(x, list), "Each frame must be a list of dictionaries"        
         y = []
         for d in x:
@@ -272,7 +272,7 @@ class Detection(Recognition):
     
     def update_frame(self, targets, predictions, format="list"):
         
-        print(f'original ground_truth {targets}')
+        # print(f'original ground_truth {targets}')
         
         if format=="list":            
             detection_gt    = self.list2stack(targets)
@@ -287,7 +287,7 @@ class Detection(Recognition):
         detection_gt_ivt = detection_gt.copy()
         detection_pd_ivt = detection_pd.copy()
         
-        print(f'after stacking detection_gt, {detection_gt}')
+        # print(f'after stacking detection_gt, {detection_gt}')
         
         
         # for triplet        

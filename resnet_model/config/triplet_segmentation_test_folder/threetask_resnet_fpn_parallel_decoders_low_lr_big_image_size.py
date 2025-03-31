@@ -37,7 +37,7 @@ elif model_name in ['ThreeTaskResNetFPNWithParralellTransformerDecoders']:
 if os.name == 'posix':  # Unix-like systems (Linux, macOS)
     dataset_path = '/nfs/home/talabi/data/triplet_segmentation_dataset_v2_second_stage'
 elif os.name == 'nt':  # Windows systems
-    dataset_path = 'C:/Users/tal22/Documents/repositories/triplet_segmentation/data/triplet_segmentation_dataset_v2_second_stage'    
+    dataset_path = 'C:/Users/tal22/Documents/repositories/datasets/my_triplet_seg_datasets/triplet_segmentation_dataset_v2_second_stage'  
 else:
     raise EnvironmentError("Unsupported operating system. Unable to set dataset_path.")
 
