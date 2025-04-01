@@ -8,8 +8,10 @@ from .singletask_resnet_fpn import SingleTaskResNetFPN
 from .singletask_resnet_fpn_parrallel_fc_layers_wit_decoder import SingleTaskResNetFPNWithTransformersAndParrallelFCLayers 
 from .threetask_resnet_fpn_parrallel_fc_layers_with_decoder import ThreeTaskResNetFPNWithParralellTransformerDecoders
 from .fourtask_resnet_fpn_moe_decoder_and_softmax_inputs_detector import FourTaskResNetFPNWithMoEDecodersAndSoftmaxInputs
+from .singletask_resnet_fpn_parrallel_fc_layers_wit_decoder_spatial_features import SingleTaskResNetFPNWithParallelTransformersSpatialFeatures
 # from .another_model import AnotherModel
 
 __all__ = ['MultiTaskResNet', 'MultiTaskResNetFPN', 'MultiTaskResNetFPNTransformerDecoder',
            'SingleTaskResNetFPN', 'SingleTaskResNetFPNForParallelFCLayers', 'SingleTaskResNetFPNWithTransformersAndParrallelFCLayers',
-           'ThreeTaskResNetFPNWithParralellTransformerDecoders', 'FourTaskResNetFPNWithMoEDecodersAndSoftmaxInputs']
+           'ThreeTaskResNetFPNWithParralellTransformerDecoders', 'FourTaskResNetFPNWithMoEDecodersAndSoftmaxInputs',
+           'SingleTaskResNetFPNWithParallelTransformersSpatialFeatures']
