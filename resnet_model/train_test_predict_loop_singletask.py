@@ -376,7 +376,7 @@ def predict_with_model_parallel_fc_layers(config,
                 local_task_id = local_task_preds[i].item()
                 gt_name = ground_truth_name[i]
                 
-                if gt_name == 'None':
+                if gt_name == 'None,None' or gt_name == 'None': # Handle both verbtargets and verb or target. 
                     gt_name = None
 
                 

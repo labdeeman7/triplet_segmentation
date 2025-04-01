@@ -6,8 +6,8 @@ from utils.general.dataset_variables import TripletSegmentationVariables
 
 
 # Hyperparameters
-batch_size = 64
-num_epochs = 1
+batch_size = 96
+num_epochs = 50
 learning_rate = 0.00001
 
 # Dynamically set the experiment name from the filename
