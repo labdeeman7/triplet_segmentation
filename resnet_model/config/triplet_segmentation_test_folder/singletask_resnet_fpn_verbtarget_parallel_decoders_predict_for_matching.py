@@ -6,41 +6,41 @@ from utils.general.dataset_variables import TripletSegmentationVariables
 
 
 # Hyperparameters
-batch_size = 128
-num_epochs = 30
-learning_rate = 0.000015
+batch_size = 96
+num_epochs = 50
+learning_rate = 0.00001
 
 # Dynamically set the experiment name from the filename
 import os
 experiment_name = os.path.splitext(os.path.basename(__file__))[0]
 
 # Model name 
-model_name = 'SingleTaskResNetFPNWithParallelTransformersSpatialFeatures' 
+model_name = 'SingleTaskResNetFPNWithTransformersAndParrallelFCLayers' 
 task_name = 'verbtarget'
 
-description =  'predict verbtargets with parrallel transformers and fcs, and spatial transformers'
+description =  'predict verbtargets with parrallel transformers and fcs'
 architecture = 'singletask_parrallel_fc'
      
   
 
 # Dataset Directories
 if os.name == 'posix':  # Unix-like systems (Linux, macOS)
-    dataset_path = '/nfs/home/talabi/data/triplet_segmentation_dataset_v2_second_stage'
+    dataset_path = '/nfs/home/talabi/data/matching_issue_tripletsegmentation_extension'
 elif os.name == 'nt':  # Windows systems
-    dataset_path = 'C:/Users/tal22/Documents/repositories/datasets/my_triplet_seg_datasets/triplet_segmentation_dataset_v2_second_stage'    
+    dataset_path = 'C:/Users/tal22/Documents/repositories/datasets/cholecinstanceseg_extension/matching_issue_tripletsegmentation_extension'    
 else:
     raise EnvironmentError("Unsupported operating system. Unable to set dataset_path.")
 
 verb_and_target_gt_present_for_test = False
 
-train_image_dir = join(dataset_path, 'train/img_dir')
-train_ann_dir = join(dataset_path, 'train/ann_second_stage')
+train_image_dir = join(dataset_path, 'img_dir')
+train_ann_dir = join(dataset_path, 'ann_second_stage')
 
-val_image_dir = join(dataset_path, 'val/img_dir')
-val_ann_dir = join(dataset_path, 'val/ann_second_stage')
+val_image_dir = join(dataset_path, 'img_dir')
+val_ann_dir = join(dataset_path, 'ann_second_stage')
 
-test_image_dir = join(dataset_path, 'mask2former_instrument_prediction/img_dir')
-test_ann_dir = join(dataset_path, 'mask2former_instrument_prediction/ann_second_stage')
+test_image_dir = join(dataset_path, 'img_dir')
+test_ann_dir = join(dataset_path, 'ann_second_stage')
 
 # Working Directory
 work_dir = f'../resnet_model/work_dirs/{experiment_name}'
@@ -49,17 +49,13 @@ save_logits_path = join(work_dir, 'results_logits.json')
 vis_dir =  join(work_dir, 'vis_dir/')
 
 # Checkpoint and Prediction Settings
-allow_resume = True # allows resumption from latest checkpoint
-load_from_checkpoint = None
-predict_only_mode = False
-
 # allow_resume = True # allows resumption from latest checkpoint
-# load_from_checkpoint = join(work_dir, 'epoch_10.pth')
+# load_from_checkpoint = None
 # predict_only_mode = False
 
-# allow_resume = False # allows resumption from latest checkpoint
-# load_from_checkpoint =  join(work_dir, 'best_model.pth')
-# predict_only_mode = True
+allow_resume = False # allows resumption from latest checkpoint
+load_from_checkpoint =  '../checkpoints/verbtarget_our_best_currently_parrallel_decoders/best_model.pth'
+predict_only_mode = True
 
 # Other Constants
 image_size = (256, 448)

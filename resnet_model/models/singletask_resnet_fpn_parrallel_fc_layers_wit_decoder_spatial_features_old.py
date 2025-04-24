@@ -55,19 +55,31 @@ class SingleTaskResNetFPNWithParallelTransformersSpatialFeatures(nn.Module):
         # Global pooling
         self.global_pool = nn.AdaptiveAvgPool2d(1)
         
-        # self.norm_instrument = nn.LayerNorm(decoder_hidden_dim)
-        # self.norm_background = nn.LayerNorm(decoder_hidden_dim)
-
+        #
+        # self.pool_size = (4,4)
+        # self.num_tokens = self.pool_size[0] * self.pool_size[1] # = 256
+        # self.instrument_pos_encoding = nn.Parameter(torch.randn(self.num_tokens+1, 1, decoder_hidden_dim))
+        # self.background_pos_encoding = nn.Parameter(torch.randn(self.num_tokens, 1, decoder_hidden_dim))
+        
+        # Attention-Based Pooling after decoder.
+        # self.decoder_pool = nn.Linear(decoder_hidden_dim, 1)
+        
+        # Global projection for CLS token (256 from FPN output channels)
+        # self.instrument_global_proj = nn.Sequential(
+        #     nn.AdaptiveAvgPool2d(1),  # (B, C, 1, 1)
+        #     nn.Flatten(),             # (B, C)
+        #     nn.Linear(256, decoder_hidden_dim)
+        # )
 
         # Embeddings
         self.instrument_class_embedding = nn.Embedding(num_instruments, embed_dim)
         self.instrument_embedding = nn.Sequential(
-            nn.Linear((256 * 4) + embed_dim, 128),
+            nn.Linear(256 + embed_dim, 128),
             nn.ReLU(),
             nn.Linear(128, decoder_hidden_dim)
         )
         self.background_image_embedding = nn.Sequential(
-            nn.Linear(256 * 4, 128),
+            nn.Linear(256, 128),
             nn.ReLU(),
             nn.Linear(128, decoder_hidden_dim)
         )
@@ -139,9 +151,54 @@ class SingleTaskResNetFPNWithParallelTransformersSpatialFeatures(nn.Module):
         instrument_with_class_context_features = torch.cat((aggregated_instrument_features, instrument_class_features), dim=1)
         instrument_embed = self.instrument_embedding(instrument_with_class_context_features).unsqueeze(0)
         
-        # Normalize embeddings
-        instrument_embed = instrument_embed / (instrument_embed.norm(dim=-1, keepdim=True) + 1e-6)
-        background_memory = background_memory / (background_memory.norm(dim=-1, keepdim=True) + 1e-6)
+        # # === Use only FPN layer2 === #
+        # fpn_feat = fpn_features["layer2"]  # shape: (B, C, H, W)
+
+        # # Downsample the mask to match FPN layer2 resolution
+        # soft_mask = self.mask_downsamplers["layer2"](mask)  # shape: (B, 1, H, W)
+        
+        # # Split into instrument and background
+        # instrument_feat = fpn_feat * soft_mask
+        # background_feat = fpn_feat * (1 - soft_mask)
+        
+        # global_inst_feat = self.instrument_global_proj(instrument_feat)  # (B, D)
+        # cls_token = global_inst_feat.unsqueeze(0)  # (1, B, D)
+        
+        # instrument_feat_pooled = nn.AdaptiveAvgPool2d(self.pool_size)(instrument_feat)  # (B, C, 16, 16)
+        # background_feat_pooled = nn.AdaptiveAvgPool2d(self.pool_size)(background_feat)  # (B, C, 16, 16)
+        
+        # # Get B, C
+        # B, C, H, W = instrument_feat_pooled.shape  # H=W=16 here
+        
+        # # Flatten to tokens
+        # T = H * W
+        
+        # # Flatten into tokens
+        # instrument_tokens = instrument_feat_pooled.view(B, C, T).permute(2, 0, 1)   # (T, B, C)
+        # background_tokens = background_feat_pooled.view(B, C, T).permute(2, 0, 1)  # (T, B, C)
+        
+        # # REMOVE normalization — let the model learn scale itself
+        # instrument_query = instrument_tokens
+        # background_memory = background_tokens
+        
+        # # Add instrument class embedding to each token
+        # class_embed = self.instrument_class_embedding(instrument_id)  # (B, embed_dim)
+        # class_embed = class_embed.unsqueeze(0).expand(T, -1, -1)       # (T, B, embed_dim)
+        # instrument_query_with_class = torch.cat((instrument_query, class_embed), dim=-1)  # (T, B, C + embed_dim)
+        
+        # # Project into decoder space
+        # instrument_spatial_embed = self.instrument_embedding(instrument_query_with_class)  # (T, B, D)
+        # instrument_embed = torch.cat([cls_token, instrument_spatial_embed], dim=0)  # (T+1, B, D)
+        # background_embed = self.background_image_embedding(background_memory)      # (T, B, decoder_hidden_dim)
+
+        # # Add positional encodings
+        # instrument_embed = instrument_embed + self.instrument_pos_encoding[:T+1]
+        # background_memory = background_embed + self.background_pos_encoding[:T]
+        
+        # if self.training and torch.isnan(instrument_embed).any():
+        #     print("NaN detected in instrument_embed after positional encoding.")
+
+
         
         # Find max number of output classes across all instruments
         max_output_size = max(fc[-1].out_features for fc in self.fc_task_dict.values())

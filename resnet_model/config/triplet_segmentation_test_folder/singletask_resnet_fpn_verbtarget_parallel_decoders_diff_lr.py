@@ -8,7 +8,7 @@ from utils.general.dataset_variables import TripletSegmentationVariables
 # Hyperparameters
 batch_size = 128
 num_epochs = 30
-learning_rate = 0.000015
+learning_rate = 0.00001
 
 # Dynamically set the experiment name from the filename
 import os
@@ -18,7 +18,7 @@ experiment_name = os.path.splitext(os.path.basename(__file__))[0]
 model_name = 'SingleTaskResNetFPNWithParallelTransformersSpatialFeatures' 
 task_name = 'verbtarget'
 
-description =  'predict verbtargets with parrallel transformers and fcs, and spatial transformers'
+description =  'predict verbtargets with parrallel transformers and fcs'
 architecture = 'singletask_parrallel_fc'
      
   
@@ -49,17 +49,17 @@ save_logits_path = join(work_dir, 'results_logits.json')
 vis_dir =  join(work_dir, 'vis_dir/')
 
 # Checkpoint and Prediction Settings
-allow_resume = True # allows resumption from latest checkpoint
-load_from_checkpoint = None
-predict_only_mode = False
+# allow_resume = True # allows resumption from latest checkpoint
+# load_from_checkpoint = None
+# predict_only_mode = False
 
 # allow_resume = True # allows resumption from latest checkpoint
 # load_from_checkpoint = join(work_dir, 'epoch_10.pth')
 # predict_only_mode = False
 
-# allow_resume = False # allows resumption from latest checkpoint
-# load_from_checkpoint =  join(work_dir, 'best_model.pth')
-# predict_only_mode = True
+allow_resume = False 
+load_from_checkpoint =  '/nfs/home/talabi/repositories/triplet_segmentation/checkpoints/singletask_resnet_fpn_verbtarget_parallel_decoders_spatial_tokens/epoch_9_best_mean_so_far.pth'
+predict_only_mode = True
 
 # Other Constants
 image_size = (256, 448)
