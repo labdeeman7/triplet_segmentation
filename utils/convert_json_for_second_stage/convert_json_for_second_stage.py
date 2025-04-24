@@ -28,8 +28,8 @@ def convert_json_ann_to_second_stage_ann_for_single_json_file(json_ann_path,
         key = (shape['label'], shape['group_id'])
         contour_info = {
             'points': shape['points'],
-            'verb': shape['verb'],
-            'target': shape['target']
+            'verb': shape.get("verb", None),
+            'target': shape.get("target", None),
         }
         grouped_shapes[key].append(contour_info)
 

@@ -202,13 +202,15 @@ def convert_pickle_to_labelme_json(save_ann_dir,
     if not os.path.exists(save_ann_dir):
         os.makedirs(save_ann_dir)
     
+    print('started opening pickle')
     with open(pickle_file_path, 'rb') as file:
         # Load the object from the file
         mmdet_results = pickle.load(file)
     
-    # i = 0
+    print('finished opening pickle')
     for single_image_prediction in mmdet_results:
         img_file_name = os.path.basename(single_image_prediction['img_path'])
+        print(img_file_name)
         ann_file_name = img_file_name.split('.')[0] + '.json'
         if ivt_predicted_directly:
             shapes = convert_predicted_segmentation_to_labelme_shapes_key_when_predicted_directly(single_image_prediction, class_threshold) 
@@ -222,7 +224,8 @@ def convert_pickle_to_labelme_json(save_ann_dir,
             "shapes": shapes,
             "imagePath": img_file_name         
         }
-         
+        
+        print(f'saved at {join(save_ann_dir, ann_file_name)}') 
         save_to_json(labelme_ann_dict, join(save_ann_dir, ann_file_name))    
     
         
