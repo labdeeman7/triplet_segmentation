@@ -1,8 +1,9 @@
 from collections import OrderedDict
+
 class TripletSegmentationVariables(object):    
     
     dataset_size_v2 = 21443
-    dataset_size_v3 = 65433
+    dataset_size_v3 = 30955
     num_instuments = 6
     num_verbs = 10
     num_targets = 15
@@ -22,15 +23,15 @@ class TripletSegmentationVariables(object):
         '6': 'irrigator'
     }),
     
-    'instrument_direct_pred': OrderedDict({
-        '1': 'grasper',
-        '2': 'hook',
-        '3': 'irrigator',
-        '4': 'clipper',
-        '5': 'bipolar',
-        '6': 'scissors',
-        '7': 'snare'
-    }),
+    # 'instrument_direct_pred': OrderedDict({
+    #     '1': 'grasper',
+    #     '2': 'hook',
+    #     '3': 'irrigator',
+    #     '4': 'clipper',
+    #     '5': 'bipolar',
+    #     '6': 'scissors',
+    #     '7': 'snare'
+    # }),
        
     'verb': OrderedDict({
         '1': 'grasp',
@@ -397,4 +398,50 @@ class TripletSegmentationVariables(object):
         'VID80': 'train',
         'VID92': 'train',
         'VID96': 'train'
+        
         }
+
+
+class CholecSeg8kVariables(object):
+    dataset_size = 8080
+    conversion_from_cholecseg8k_to_tissue_segmentation = {
+        50: {'orig_name': 'black_background', 'new_name': 'background', 'id': 0, 'color': (0, 0, 0)},
+        255: {'orig_name': 'None', 'new_name': 'background', 'id': 0, 'color': (0, 0, 0)},
+        11: {'orig_name': 'abdominal_wall', 'new_name': 'abdominal_wall', 'id': 1, 'color': (128, 0, 0)},
+        21: {'orig_name': 'liver', 'new_name': 'liver', 'id': 2, 'color': (0, 128, 0)},
+        13: {'orig_name': 'gastrointestinal_tract', 'new_name': 'gastrointestinal_tract', 'id': 3, 'color': (0, 0, 128)},
+        12: {'orig_name': 'fat', 'new_name': 'fat', 'id': 4, 'color': (128, 128, 0)},
+        23: {'orig_name': 'connective_tissue', 'new_name': 'connective_tissue', 'id': 5, 'color': (128, 0, 128)},
+        24: {'orig_name': 'blood', 'new_name': 'blood', 'id': 6, 'color': (0, 128, 128)},
+        25: {'orig_name': 'cystic_duct', 'new_name': 'cystic_duct', 'id': 7, 'color': (255, 255, 0)},
+        22: {'orig_name': 'gallbladder', 'new_name': 'gallbladder', 'id': 8, 'color': (255, 0, 255)},
+        33: {'orig_name': 'hepatic_vein', 'new_name': 'hepatic_vein', 'id': 9, 'color': (0, 255, 255)},
+        5: {'orig_name': 'liver_ligament', 'new_name': 'liver_ligament', 'id': 10, 'color': (220, 40, 80)},
+        31: {'orig_name': 'grasper', 'new_name': 'instrument', 'id': 11, 'color': (80, 120, 220)},
+        32: {'orig_name': 'L-hook Electrocautery', 'new_name': 'instrument', 'id': 11, 'color': (80, 120, 220)},
+    }
+    
+    seq_to_split_dict = {
+        'VID09': 'test',
+        'VID20': 'test',
+        'VID24': 'test',
+        'VID55': 'test',
+        
+        'VID01': 'train',
+        'VID12': 'train',
+        'VID18': 'train',
+        'VID25': 'train',
+        'VID26': 'train',
+        'VID27': 'train',
+        'VID35': 'train',
+        'VID43': 'train',
+        'VID48': 'train',
+        'VID52': 'train',
+        
+        'VID17': 'val',
+        'VID28': 'val',
+        'VID37': 'val',
+        
+        }
+
+

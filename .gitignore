@@ -23,3 +23,5 @@ prototype/inputs/
 checkpoints/
 
 work_dirs_v3/
+
+work_dirs_old/

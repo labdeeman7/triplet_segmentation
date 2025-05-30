@@ -78,6 +78,9 @@ def convert_predicted_segmentation_to_labelme_shapes_key(single_image_prediction
     scores = pred_instances['scores']
     verb_scores  = pred_instances.get('verb_scores', [])
     target_scores =  pred_instances.get('target_scores', []) 
+    
+    # print(verb_labels)
+    # print(target_labels)
 
     
     # print(f'class_labels {class_labels}')
@@ -197,7 +200,7 @@ def convert_pickle_to_labelme_json(save_ann_dir,
                                     class_threshold = 0.5):
     if with_pretrained_model:
         global INSTRUMENT_ID_TO_INSTRUMENT_CLASS_DICT
-        INSTRUMENT_ID_TO_INSTRUMENT_CLASS_DICT = TripletSegmentationVariables.categories['instrument_direct_pred']
+        INSTRUMENT_ID_TO_INSTRUMENT_CLASS_DICT = TripletSegmentationVariables.categories['instrument']
         
     if not os.path.exists(save_ann_dir):
         os.makedirs(save_ann_dir)
