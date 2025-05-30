@@ -5,13 +5,14 @@ from .multitask_resnet_fpn import MultiTaskResNetFPN
 from .multitask_resnet_fpn_transformer_decoder import MultiTaskResNetFPNTransformerDecoder
 from .singletask_resnet_fpn_parrallel_fc_layers import SingleTaskResNetFPNForParallelFCLayers
 from .singletask_resnet_fpn import SingleTaskResNetFPN
-from .singletask_resnet_fpn_parrallel_fc_layers_wit_decoder import SingleTaskResNetFPNWithTransformersAndParrallelFCLayers 
+from .singletask_resnet_fpn_parrallel_fc_layers_with_decoder import SingleTaskResNetFPNWithTransformersAndParrallelFCLayers 
 from .threetask_resnet_fpn_parrallel_fc_layers_with_decoder import ThreeTaskResNetFPNWithParralellTransformerDecoders
 from .fourtask_resnet_fpn_moe_decoder_and_softmax_inputs_detector import FourTaskResNetFPNWithMoEDecodersAndSoftmaxInputs
 from .singletask_resnet_fpn_parrallel_fc_layers_wit_decoder_spatial_features import SingleTaskResNetFPNWithParallelTransformersSpatialFeatures
+from .singletask_resnet_fpn_transformer_decoder import SingleTaskResNetFPNTransformerDecoder 
 # from .another_model import AnotherModel
 
 __all__ = ['MultiTaskResNet', 'MultiTaskResNetFPN', 'MultiTaskResNetFPNTransformerDecoder',
            'SingleTaskResNetFPN', 'SingleTaskResNetFPNForParallelFCLayers', 'SingleTaskResNetFPNWithTransformersAndParrallelFCLayers',
            'ThreeTaskResNetFPNWithParralellTransformerDecoders', 'FourTaskResNetFPNWithMoEDecodersAndSoftmaxInputs',
-           'SingleTaskResNetFPNWithParallelTransformersSpatialFeatures']
+           'SingleTaskResNetFPNWithParallelTransformersSpatialFeatures', 'SingleTaskResNetFPNTransformerDecoder']

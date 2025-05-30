@@ -5,17 +5,16 @@ from torchvision.ops import FeaturePyramidNetwork
 from collections import OrderedDict
 
 # Multitask ResNet
-class MultiTaskResNetFPNTransformerDecoder(nn.Module):
+class SingleTaskResNetFPNTransformerDecoder(nn.Module):
     def __init__(self,
                  config, 
                  num_instruments, 
-                 num_verbs, 
-                 num_targets,
+                 num_task_class,
                  embed_dim=64, 
                  decoder_hidden_dim=64, 
                  num_decoder_layers=3):
         
-        super(MultiTaskResNetFPNTransformerDecoder, self).__init__()
+        super(SingleTaskResNetFPNTransformerDecoder, self).__init__()
         self.resnet = models.resnet50(pretrained=True)
         # Modify the first convolutional layer to accept 4 channels
         original_conv1 = self.resnet.conv1
@@ -89,17 +88,12 @@ class MultiTaskResNetFPNTransformerDecoder(nn.Module):
         self.transformer_decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_decoder_layers)        
 
         # Fully connected layers for verbs and targets
-        self.fc_verb = nn.Sequential(
+        self.fc_task = nn.Sequential(
             nn.Linear(decoder_hidden_dim, 256),
             nn.ReLU(),
-            nn.Linear(256, num_verbs)  # Output logits for verbs
+            nn.Linear(256, num_task_class)  # Output logits for task
         )
-
-        self.fc_target = nn.Sequential(
-            nn.Linear(decoder_hidden_dim, 256),
-            nn.ReLU(),
-            nn.Linear(256, num_targets)  # Output logits for targets
-        )
+        
 
     def forward(self, img, mask, instrument_id):
        # Concatenate the image and mask along the channel dimension
@@ -156,10 +150,11 @@ class MultiTaskResNetFPNTransformerDecoder(nn.Module):
         instrument_embed = instrument_embed / (instrument_embed.norm(dim=-1, keepdim=True) + 1e-6)
         background_memory = background_memory / (background_memory.norm(dim=-1, keepdim=True) + 1e-6)
 
-        # Decoder for verbs and target prediction, main difference to other model.
-        decoder_output = self.transformer_decoder(instrument_embed, background_memory)        
-        action_preds = self.fc_verb(decoder_output.squeeze(0))
-        target_preds = self.fc_target(decoder_output.squeeze(0))
+        # Decoder for task prediction.
+        decoder_output = self.transformer_decoder(instrument_embed, background_memory)   
+        
+        #predict the task     
+        task_preds = self.fc_task(decoder_output.squeeze(0))
        
         
-        return action_preds, target_preds
+        return task_preds

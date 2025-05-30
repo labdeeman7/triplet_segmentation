@@ -282,7 +282,7 @@ def predict_with_model_singletask(config,
         print('began prediction...', flush=True)
 
     with torch.no_grad():
-        for img, mask, instrument_id, instance_id, mask_name in dataloader:
+        for img, mask, instrument_id, instance_id, mask_name, ground_truth_name in dataloader:
             img = img.to(device)
             mask = mask.to(device)
             instrument_id = instrument_id.to(device)

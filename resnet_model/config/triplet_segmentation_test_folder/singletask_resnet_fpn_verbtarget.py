@@ -13,7 +13,8 @@ experiment_name = os.path.splitext(os.path.basename(__file__))[0]
 # Model name
 model_name = 'SingleTaskResNetFPN'
 task_name = 'verbtarget'
-description =  f'resnet_fpn predicting {task_name} only'
+description =  f'resnet_fpn predicting {task_name} with the old dataset'
+architecture = 'singletask'
 
 # Dataset Directories
 if os.name == 'posix':  # Unix-like systems (Linux, macOS)
@@ -37,12 +38,17 @@ test_ann_dir = join(dataset_path, 'mask2former_instrument_prediction/ann_second_
 # Working Directory
 work_dir = f'../resnet_model/work_dirs/{experiment_name}'
 save_results_path = join(work_dir, 'results.json')
-save_latest_results_path = join(work_dir, 'results_latest.json')
+save_logits_path = join(work_dir, 'results_logits.json')
+vis_dir =  join(work_dir, 'vis_dir/')
+
 
 # Checkpoint and Prediction Settings
+# Checkpoint and Prediction Settings
 allow_resume = True # allows resumption from latest checkpoint
-load_from_checkpoint = None
-predict_only_mode = False
+load_from_checkpoint = '../resnet_model/work_dirs/singletask_resnet_fpn_verbtarget/epoch_20.pth'
+predict_only_mode = True
+use_wce = False
 
 # Other Constants
-image_size = (224, 224)
+image_size = (256, 448)
+model_input_size = (256, 448)

@@ -6,7 +6,7 @@ from collections import OrderedDict
 
 # Multitask ResNet
 class SingleTaskResNetFPN(nn.Module):
-    def __init__(self, num_instruments, num_task_class):
+    def __init__(self, config, num_instruments, num_task_class):
         
         super(SingleTaskResNetFPN, self).__init__()
         self.resnet = models.resnet50(pretrained=True)

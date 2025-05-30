@@ -187,11 +187,11 @@ def main():
 
     # Initialize Model, Loss, Optimizer 
     if config.architecture == 'singletask':
-        model = model_class(num_instruments, num_task_class)
+        model = model_class(config, num_instruments, num_task_class)
     elif config.architecture == 'singletask_parrallel_fc':
         model = model_class(config, num_instruments, config.instrument_to_task_classes)    
     elif config.architecture == 'multitask':   
-        model = model_class(num_instruments, num_verbs, num_targets) 
+        model = model_class(config, num_instruments, num_verbs, num_targets) 
     elif config.architecture == 'threetask_parallel_fc':   
         model = model_class(config,
                             config.instrument_to_verb_classes, 

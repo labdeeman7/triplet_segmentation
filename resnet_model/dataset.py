@@ -425,7 +425,12 @@ class PredictionDataset(Dataset):
             if verb_name and target_name: 
                 ground_truth_name = f'{verb_name},{target_name}'
             else:
-                ground_truth_name = None            
+                ground_truth_name = None   
+        elif self.task_name == 'standard_multitask_verb_and_target':
+            if verb_name and target_name: 
+                ground_truth_name = f'{verb_name},{target_name}'
+            else:
+                ground_truth_name = None                  
         
         img_path = join(self.img_dir, f'{img_name}.png')
         instrument_id = int(INSTRUMENT_CLASS_TO_ID_DICT[instrument_name])-1
