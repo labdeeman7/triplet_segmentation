@@ -8,6 +8,10 @@ from PIL import Image
 from utils.general.dataset_variables import TripletSegmentationVariables
 from torchvision.transforms import functional as TF
 from utils.general.read_files import read_from_json
+import os
+import torch
+from torch.utils.data import Dataset
+import numpy as np
 
 INSTRUMENT_ID_TO_CLASS_DICT = TripletSegmentationVariables.categories['instrument']
 VERB_ID_TO_CLASS_DICT = TripletSegmentationVariables.categories['verb']
@@ -66,61 +70,9 @@ class SurgicalSingletaskDataset(Dataset):
             img, mask = self.transform(img, mask, self.train_mode)  # Apply custom transformation
 
 
-        return img, mask, instrument_id, instance_id, task_id, ann_for_second_stage_name_base
-    
-    
-class SurgicalSingletaskDataset(Dataset):
-    def __init__(self, 
-                 config,
-                 img_dir, 
-                 ann_for_second_stage_dir,
-                 transform=None,
-                 train_mode=True ):
-        self.img_dir = img_dir
-        self.ann_for_second_stage_dir = ann_for_second_stage_dir
-        self.transform = transform
-        self.train_mode = train_mode
-        self.task_name = config.task_name
-        self.class_name = 'SurgicalSingletaskDataset'
-        
-        self.ann_for_second_stage_names = os.listdir(self.ann_for_second_stage_dir) 
-        self.img_paths = os.listdir(self.img_dir) 
-
-    def __len__(self):
-        return len(self.ann_for_second_stage_names)
-
-    def __getitem__(self, idx):
-        ann_for_second_stage_name = self.ann_for_second_stage_names[idx]
-        ann_for_second_stage_path = join(self.ann_for_second_stage_dir, 
-                                         ann_for_second_stage_name)
- 
-        ann_for_second_stage_name_base = ann_for_second_stage_name.split('.')[0]
-        img_name, instrument_name, instance_id, verb_name, target_name = ann_for_second_stage_name_base.split(',')
-        img_path = join(self.img_dir, f'{img_name}.png')
-        
-        if self.task_name == 'verb':
-            task_id = int(VERB_CLASS_TO_ID_DICT[verb_name])-1
-        elif self.task_name == 'target': 
-            task_id = int(TARGET_CLASS_TO_ID_DICT[target_name])-1
-        elif self.task_name == 'verbtarget': 
-            task_id = int(VERBTARGET_CLASS_TO_ID_DICT[f'{verb_name},{target_name}'])-1               
-        
-        instrument_id = int(INSTRUMENT_CLASS_TO_ID_DICT[instrument_name])-1
-        
-        img = Image.open(img_path).convert("RGB")  # Use PIL for transformations
-        mask = Image.open(ann_for_second_stage_path).convert("L")  # Load mask as grayscale
-        
-        if self.transform:
-            img, mask = self.transform(img, mask, self.train_mode)  # Apply custom transformation
-
-
         return img, mask, instrument_id, instance_id, task_id, ann_for_second_stage_name_base    
     
 
-import os
-import torch
-from torch.utils.data import Dataset
-from PIL import Image
 
 class SurgicalSingletaskDatasetForParallelFCLayers(Dataset):
     def __init__(self, 
@@ -374,6 +326,77 @@ class SurgicalFourTaskDatasetWithDetectorLogits(Dataset):
         return img, mask, ann_base, gt_instance_id, gt_instrument_id, gt_verb_id, gt_target_id, gt_verbtarget_id, gt_triplet_id, instrument_softmax
 
 
+#### With target logits  
+
+class SurgicalSingletaskDatasetWithTargetLogits(Dataset):
+    def __init__(self, 
+                 config, 
+                 transform=None, 
+                 split='train'):
+        
+        self.config = config
+        self.transform = transform
+        self.split = split
+        self.task_name = config.task_name
+        
+        
+        # Dynamically set directories
+        if split == 'train':
+            self.img_dir = config.train_image_dir
+            self.ann_for_second_stage_dir = config.train_ann_dir
+            self.target_logits_dir = config.target_logits_dir_train
+        elif split == 'val':
+            self.img_dir = config.val_image_dir
+            self.ann_for_second_stage_dir = config.val_ann_dir
+            self.target_logits_dir = config.target_logits_dir_val
+        elif split == 'test':
+            self.img_dir = config.test_image_dir
+            self.ann_for_second_stage_dir = config.test_ann_dir
+            self.target_logits_dir = config.target_logits_dir_test
+        else:
+            raise ValueError(f"Unknown split: {split}")
+
+        self.ann_for_second_stage_names = os.listdir(self.ann_for_second_stage_dir) 
+        self.img_paths = os.listdir(self.img_dir) 
+
+    def __len__(self):
+        return len(self.ann_for_second_stage_names)
+
+    def __getitem__(self, idx):
+        
+        ann_for_second_stage_name = self.ann_for_second_stage_names[idx]
+        ann_for_second_stage_path = join(self.ann_for_second_stage_dir, ann_for_second_stage_name)
+        
+        ann_for_second_stage_name_base = ann_for_second_stage_name.split('.')[0]
+        img_name, instrument_name, instance_id, verb_name, target_name = ann_for_second_stage_name_base.split(',')
+        img_path = join(self.img_dir, f'{img_name}.png')
+        
+        # Load image and mask
+        img = Image.open(img_path).convert("RGB")
+        mask = Image.open(ann_for_second_stage_path).convert("L")
+        
+        # Load target logits (.npz)
+        logits_file_name = f"{img_name}_logits.npz"
+        logits_file_path = join(self.target_logits_dir, logits_file_name)
+        logits_data = np.load(logits_file_path)
+        target_logits = logits_data['logits']  # Updated key to 'logits'
+        target_logits_tensor = torch.tensor(target_logits, dtype=torch.float16)  # Convert to torch tensor
+        
+        # Get labels
+        if self.task_name == 'verb':
+            task_id = int(VERB_CLASS_TO_ID_DICT[verb_name]) - 1
+        elif self.task_name == 'target': 
+            task_id = int(TARGET_CLASS_TO_ID_DICT[target_name]) - 1
+        elif self.task_name == 'verbtarget': 
+            task_id = int(VERBTARGET_CLASS_TO_ID_DICT[f'{verb_name},{target_name}']) - 1
+        
+        instrument_id = int(INSTRUMENT_CLASS_TO_ID_DICT[instrument_name]) - 1
+        
+        # Apply transform (if any) - make sure to handle target logits later
+        if self.transform:
+            img, mask, target_logits_tensor = self.transform(img, mask, target_logits_tensor, self.split)
+        
+        return img, mask, target_logits_tensor, instrument_id, instance_id, task_id, ann_for_second_stage_name_base
 
 
 
@@ -381,24 +404,41 @@ class SurgicalFourTaskDatasetWithDetectorLogits(Dataset):
 
 
 
-########################################################Prediction Datasets. There is only one. ##############################    
+#######################################################Prediction Datasets. ##############################    
 
 class PredictionDataset(Dataset):
     def __init__(self, 
-                 config,
-                 img_dir, 
-                 ann_for_second_stage_dir,
-                 transform=None,
-                 train_mode=True ):
-        self.img_dir = img_dir
-        self.ann_for_second_stage_dir = ann_for_second_stage_dir
+                 config, 
+                 transform=None, 
+                 split='train'):
+        
+        self.config = config
         self.transform = transform
-        self.train_mode = train_mode
+        self.split = split
+        
         self.class_name = 'PredictionDataset'
         self.task_name = config.task_name
+        self.architecture = config.architecture
         
+        
+        if split == 'train':
+            self.img_dir = config.train_image_dir
+            self.ann_for_second_stage_dir = config.train_ann_dir
+            self.target_logits_dir = config.target_logits_dir_train
+        elif split == 'val':
+            self.img_dir = config.val_image_dir
+            self.ann_for_second_stage_dir = config.val_ann_dir
+            self.target_logits_dir = config.target_logits_dir_val
+        elif split == 'test':
+            self.img_dir = config.test_image_dir
+            self.ann_for_second_stage_dir = config.test_ann_dir
+            self.target_logits_dir = config.target_logits_dir_test
+        else:
+            raise ValueError(f"Unknown split: {split}")
+
         self.ann_for_second_stage_names = os.listdir(self.ann_for_second_stage_dir) 
         self.img_paths = os.listdir(self.img_dir) 
+
         
     def __len__(self):
         return len(self.ann_for_second_stage_names)
@@ -438,11 +478,26 @@ class PredictionDataset(Dataset):
         img = Image.open(img_path).convert("RGB")  # Use PIL for transformations
         mask = Image.open(ann_for_second_stage_path).convert("L")  # Load mask as grayscale
         
-        if self.transform:
-            img, mask = self.transform(img, mask, self.train_mode)  # Apply custom transformation
+        # Load target logits (.npz)
+        if self.architecture == 'singletaskwithtargetlogits':
+            logits_file_name = f"{img_name}_logits.npz"
+            logits_file_path = join(self.target_logits_dir, logits_file_name)
+            logits_data = np.load(logits_file_path)
+            target_logits = logits_data['logits']  # Updated key to 'logits'
+            target_logits_tensor = torch.tensor(target_logits, dtype=torch.float16)  # Convert to torch tensor
+        
+        
+            if self.transform:
+                img, mask, target_logits_tensor = self.transform(img, mask, target_logits_tensor, self.split)
+
+            return img, mask, target_logits_tensor, instrument_id, instance_id, ann_for_second_stage_name_base, ground_truth_name   
+        else: 
+            if self.transform:
+                img, mask = self.transform(img, mask, self.split)  # Apply custom transformation
 
 
-        return img, mask, instrument_id, instance_id, ann_for_second_stage_name_base, ground_truth_name            
+            return img, mask, instrument_id, instance_id, ann_for_second_stage_name_base, ground_truth_name 
+                     
     
     
 

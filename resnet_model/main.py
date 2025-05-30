@@ -12,8 +12,10 @@ from torch.utils.data import DataLoader
 from resnet_model.dataset import SurgicalSingletaskDataset, PredictionDataset, SurgicalMultitaskDataset
 from resnet_model.dataset import SurgicalSingletaskDatasetForParallelFCLayers, SurgicalThreetaskDatasetForParallelLayers
 from resnet_model.dataset import SurgicalFourTaskDatasetWithDetectorLogits, PredictionDatasetSofmaxInputs
+from resnet_model.dataset import SurgicalSingletaskDatasetWithTargetLogits
 
 from custom_transform import CustomTransform
+from custom_transform import CustomTransformWithLogits
 
 from loss import MultiTaskLoss, MultiTaskLossThreeTasks, MultiTaskLossFourTasks
 
@@ -27,6 +29,10 @@ from resnet_model.train_test_predict_loop_singletask import train_model_singleta
 from resnet_model.train_test_predict_loop_threetask import train_model_threetask, predict_with_model_threetask
 from resnet_model.train_test_predict_loop_two_task import train_model_multitask,  predict_with_model_multitask
 from resnet_model.train_test_predict_loop_four_task import train_model_fourtask,  predict_with_model_fourtask
+from resnet_model.train_test_predict_loop_singletask_target_logits import train_model_singletask_with_target_logits,  predict_with_model_singletask_with_target_logits
+
+
+
 
 
 
@@ -98,6 +104,11 @@ def main():
         _SurgicalDataset = SurgicalSingletaskDataset
         _train_model = train_model_singletask
         _predict_with_model = predict_with_model_singletask
+    elif config.architecture == 'singletaskwithtargetlogits':
+        _SurgicalDataset = SurgicalSingletaskDatasetWithTargetLogits
+        _train_model = train_model_singletask_with_target_logits
+        _predict_with_model = predict_with_model_singletask_with_target_logits
+        transform = CustomTransformWithLogits(image_size=config.image_size, model_input_size=config.model_input_size)        
     elif  config.architecture == 'singletask_parrallel_fc':
         _SurgicalDataset = SurgicalSingletaskDatasetForParallelFCLayers
         _train_model = train_model_singletask
@@ -115,63 +126,20 @@ def main():
         _train_model = train_model_fourtask
         _predict_with_model = predict_with_model_fourtask        
     else:
-        raise ValueError("we currently only accept 'singletask', 'multitask', 'singletask_parrallel_fc', 'threetask_parallel_fc'")      
+        raise ValueError("we currently only accept 'singletask', 'singletask_parrallel_fc', 'multitask', 'singletask_parrallel_fc', 'threetask_parallel_fc'")      
 
     # Datasets and DataLoaders
-    train_dataset = _SurgicalDataset(config, config.train_image_dir, config.train_ann_dir, transform, train_mode=True)    
-    val_dataset = _SurgicalDataset(config, config.val_image_dir, config.val_ann_dir, transform, train_mode=False)
-    if config.architecture == 'fourtask_moe':
-        test_dataset = PredictionDatasetSofmaxInputs(
-            config,
-            config.test_image_dir,
-            config.test_ann_dir,
-            config.detector_softmax_scores_json,
-            transform,
-            train_mode=False
-        )
-    else:
-        test_dataset = PredictionDataset(config, config.test_image_dir, config.test_ann_dir, transform, train_mode=False)
+    ## Train and val 
+    
+   
+    train_dataset = _SurgicalDataset(config, transform, split='train')
+    val_dataset = _SurgicalDataset(config, transform, split='val')
+    test_dataset = PredictionDataset(config, transform, split='test')
 
-
-    # Get class_name to id.  for wce. 
-    if task_name == 'verb':
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in verb_dict.items()}  
-    elif task_name == 'target':
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in target_dict.items()} 
-    elif task_name == 'verbtarget':
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()}   
-    elif task_name == 'standard_multitask_verb_and_target':   
-        class_to_idx_zero_index = {value: int(key)-1 for key, value in verbtarget_dict.items()}   
-    elif task_name == 'threetask':
-        pass    
-    elif task_name == 'fourtask_moe':
-        pass        
-    else:
-        raise ValueError("We currently only accept 'verb', 'target', 'verbtarget', 'verbtarget_multitask' or 'triplet'")
     
     # weighted cross entropy or normal crossentropy 
-    if config.architecture == 'singletask': 
-        if config.use_wce:
-            assert hasattr(config, "task_class_frequencies"), 'task frequencies are required'
-            print('using weighted cross entropy')
-            loss_class_weights = {cls: (1 / (freq ** config.dataset_weight_scaling_factor)) if freq > 0 else 0  
-                        for cls, freq in config.task_class_frequencies.items()}   
-            #Normalize and ensure it sums to 1. 
-            total_weight = sum(loss_class_weights.values())
-            loss_normalized_weights = {cls: weight / total_weight for cls, weight in loss_class_weights.items()}  
-            # arange and convert to tensor.   
-            loss_weights_tensor = torch.tensor([loss_normalized_weights[cls] for cls in 
-                                                sorted(class_to_idx_zero_index, 
-                                                    key=class_to_idx_zero_index.get)],
-                                            dtype=torch.float, 
-                                            device='cuda') 
-            print(f'loss_weights_tensor {loss_weights_tensor}')             
-            _loss_fn = nn.CrossEntropyLoss(weight=loss_weights_tensor)        
-        else: 
-            print('using standard cross entropy')
-            _loss_fn = nn.CrossEntropyLoss()   
-    elif config.architecture == 'singletask_parrallel_fc':
-        _loss_fn = nn.CrossEntropyLoss()           
+    if config.architecture in  ['singletask', 'singletaskwithtargetlogits', 'singletask_parrallel_fc']:
+        _loss_fn = nn.CrossEntropyLoss()   
     elif config.architecture == 'multitask':               
         _loss_fn = MultiTaskLoss(config)
     elif  config.architecture == 'threetask_parallel_fc':               
@@ -186,7 +154,7 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False)
 
     # Initialize Model, Loss, Optimizer 
-    if config.architecture == 'singletask':
+    if config.architecture in ['singletask', 'singletaskwithtargetlogits'] :
         model = model_class(config, num_instruments, num_task_class)
     elif config.architecture == 'singletask_parrallel_fc':
         model = model_class(config, num_instruments, config.instrument_to_task_classes)    
